@@ -5,7 +5,7 @@ import rospy
 from geometry_msgs.msg import Point, Vector3
 import math
 from people_msgs.msg import PositionMeasurementArray, Person, People
-from easy_markers.generator import MarkerGenerator, Marker
+# from easy_markers.generator import MarkerGenerator, Marker
 from kalman_filter import Kalman
 
 def distance(leg1, leg2):
@@ -32,10 +32,10 @@ def scale(v, s):
 def printv(v):
     print "%.2f %.2f %.2f"%(v.x, v.y, v.z),
 
-gen = MarkerGenerator()
-gen.type = Marker.ARROW
-gen.ns = 'velocities'
-gen.lifetime = .5
+# gen = MarkerGenerator()
+# gen.type = Marker.ARROW
+# gen.ns = 'velocities'
+# gen.lifetime = .5
 
 
 class PersonEstimate(object):
@@ -68,14 +68,14 @@ class PersonEstimate(object):
         v = Vector3(k[0], k[1], k[2])
         return v
 
-    def publish_markers(self, pub):
-        gen.scale = [.1, .3, 0]
-        gen.color = [1, 1, 1, 1]
-        vel = self.velocity()
-        #scale(vel, 15)
-        m = gen.marker(points=[self.pos.pos, add(self.pos.pos, vel)])
-        m.header = self.pos.header
-        pub.publish(m)
+    # def publish_markers(self, pub):
+    #     gen.scale = [.1, .3, 0]
+    #     gen.color = [1, 1, 1, 1]
+    #     vel = self.velocity()
+    #     #scale(vel, 15)
+    #     m = gen.marker(points=[self.pos.pos, add(self.pos.pos, vel)])
+    #     m.header = self.pos.header
+    #     pub.publish(m)
 
     def get_person(self):
         p = Person()
@@ -93,9 +93,9 @@ class VelocityTracker(object):
         self.sub = rospy.Subscriber('/people_tracker_measurements',
                                     PositionMeasurementArray,
                                     self.pm_cb)
-        self.mpub = rospy.Publisher('/visualization_marker',
-                                    Marker,
-                                    queue_size=10)
+        # self.mpub = rospy.Publisher('/visualization_marker',
+        #                             Marker,
+        #                             queue_size=10)
         self.ppub = rospy.Publisher('/people',
                                     People,
                                     queue_size=10)
@@ -120,12 +120,12 @@ class VelocityTracker(object):
             rate.sleep()
 
     def publish(self):
-        gen.counter = 0
+        # gen.counter = 0
         pl = People()
         pl.header.frame_id = None
 
         for p in self.people.values():
-            p.publish_markers(self.mpub)
+            # p.publish_markers(self.mpub)
             frame, person = p.get_person()
             pl.header.frame_id = frame
             pl.people.append(person)

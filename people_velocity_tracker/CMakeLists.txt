@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 2.8.3)
 project(people_velocity_tracker)
 
 find_package(catkin REQUIRED COMPONENTS
-  easy_markers
   geometry_msgs
   kalman_filter
   people_msgs
@@ -12,7 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 catkin_package(
     CATKIN_DEPENDS 
-        easy_markers geometry_msgs kalman_filter people_msgs
+		geometry_msgs kalman_filter people_msgs
         roslib rospy
 )
 
