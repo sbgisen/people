@@ -115,7 +115,7 @@ public:
     {
       ROS_WARN("TF exception spot 6.");
     }
-    tf::StampedTransform pose(tf::Pose(tf::Quaternion(0.0, 0.0, 0.0, 1.0), loc), loc.stamp_, id_, loc.frame_id_);
+    tf::StampedTransform pose(tf::Pose(tf::Quaternion(0.0, 0.0, 0.0, 1.0), loc), loc.stamp_, loc.frame_id_, id_);
     tfl_.setTransform(pose);
 
     BFL::StatePosVel prior_sigma(tf::Vector3(0.1, 0.1, 0.1), tf::Vector3(0.0000001, 0.0000001, 0.0000001));
@@ -138,7 +138,7 @@ public:
 
   void update(tf::Stamped<tf::Point> loc, double probability)
   {
-    tf::StampedTransform pose(tf::Pose(tf::Quaternion(0.0, 0.0, 0.0, 1.0), loc), loc.stamp_, id_, loc.frame_id_);
+    tf::StampedTransform pose(tf::Pose(tf::Quaternion(0.0, 0.0, 0.0, 1.0), loc), loc.stamp_, loc.frame_id_, id_);
     tfl_.setTransform(pose);
 
     meas_time_ = loc.stamp_;
@@ -731,9 +731,9 @@ public:
 
       memcpy(tmp_mat.data, f.data(), f.size()*sizeof(float));
 
-      float probability = 0.5 -
-                          forest->predict(tmp_mat, cv::noArray(), cv::ml::RTrees::PREDICT_SUM) /
-                          forest->getRoots().size();
+      float probability = 0.5 + 0.5 *
+                          static_cast<float>(forest->predict(tmp_mat, cv::noArray(), cv::ml::RTrees::PREDICT_SUM)) /
+                          static_cast<float>(forest->getRoots().size());
 
       tf::Stamped<tf::Point> loc((*i)->center(), scan->header.stamp, scan->header.frame_id);
       try
