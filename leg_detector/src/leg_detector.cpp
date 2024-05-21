@@ -941,10 +941,12 @@ public:
             pos.pos.z = dz;
             pos.reliability = reliability;
             pos.covariance[0] = pow(0.3 / reliability, 2.0);
+            pos.covariance[0] = std::isinf(pos.covariance[0]) ? 10000.0 : pos.covariance[0];
             pos.covariance[1] = 0.0;
             pos.covariance[2] = 0.0;
             pos.covariance[3] = 0.0;
             pos.covariance[4] = pow(0.3 / reliability, 2.0);
+            pos.covariance[4] = std::isinf(pos.covariance[0]) ? 10000.0 : pos.covariance[0];
             pos.covariance[5] = 0.0;
             pos.covariance[6] = 0.0;
             pos.covariance[7] = 0.0;
