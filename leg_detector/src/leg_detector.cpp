@@ -138,6 +138,10 @@ public:
 
   void update(tf::Stamped<tf::Point> loc, double probability)
   {
+    if (loc.stamp_ <= meas_time_)
+    {
+      loc.stamp_ = meas_time_ + ros::Duration(0.0001);
+    }
     tf::StampedTransform pose(tf::Pose(tf::Quaternion(0.0, 0.0, 0.0, 1.0), loc), loc.stamp_, loc.frame_id_, id_);
     tfl_.setTransform(pose);
 
