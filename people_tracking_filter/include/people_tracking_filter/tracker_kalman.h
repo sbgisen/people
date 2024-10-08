@@ -49,7 +49,7 @@
 #include <people_tracking_filter/state_pos_vel.h>
 
 // TF
-#include <tf/tf.h>
+#include <tf2/LinearMath/Vector3.h>
 
 // log files
 #include <fstream>
@@ -90,12 +90,12 @@ public:
 
   /// update tracker
   virtual bool updatePrediction(const double time);
-  virtual bool updateCorrection(const tf::Vector3& meas,
+  virtual bool updateCorrection(const tf2::Vector3& meas,
                                 const MatrixWrapper::SymmetricMatrix& cov);
 
   /// get filter posterior
   virtual void getEstimate(BFL::StatePosVel& est) const;
-  virtual void getEstimate(people_msgs::PositionMeasurement& est) const;
+  virtual void getEstimate(people_msgs::msg::PositionMeasurement& est) const;
 
 private:
   // pdf / model / filter

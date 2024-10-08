@@ -42,8 +42,8 @@
 
 namespace BFL
 {
-UniformVector::UniformVector(const tf::Vector3& mu, const tf::Vector3& size)
-  : Pdf<tf::Vector3> (1),
+UniformVector::UniformVector(const tf2::Vector3& mu, const tf2::Vector3& size)
+  : Pdf<tf2::Vector3> (1),
     mu_(mu),
     size_(size)
 {
@@ -67,7 +67,7 @@ std::ostream& operator<< (std::ostream& os, const UniformVector& g)
   return os;
 }
 
-Probability UniformVector::ProbabilityGet(const tf::Vector3& input) const
+Probability UniformVector::ProbabilityGet(const tf2::Vector3& input) const
 {
   for (unsigned int i = 0; i < 3; i++)
   {
@@ -78,11 +78,11 @@ Probability UniformVector::ProbabilityGet(const tf::Vector3& input) const
 }
 
 bool
-UniformVector::SampleFrom(vector<Sample<tf::Vector3> >& list_samples, const int num_samples,
+UniformVector::SampleFrom(vector<Sample<tf2::Vector3> >& list_samples, const int num_samples,
                           int method, void* args) const
 {
   list_samples.resize(num_samples);
-  vector<Sample<tf::Vector3> >::iterator sample_it = list_samples.begin();
+  vector<Sample<tf2::Vector3> >::iterator sample_it = list_samples.begin();
   for (sample_it = list_samples.begin(); sample_it != list_samples.end(); sample_it++)
     SampleFrom(*sample_it, method, args);
 
@@ -90,15 +90,15 @@ UniformVector::SampleFrom(vector<Sample<tf::Vector3> >& list_samples, const int 
 }
 
 bool
-UniformVector::SampleFrom(Sample<tf::Vector3>& one_sample, int method, void * args) const
+UniformVector::SampleFrom(Sample<tf2::Vector3>& one_sample, int method, void * args) const
 {
-  one_sample.ValueSet(tf::Vector3(((runif() - 0.5) * 2 * size_[0]) + mu_[0],
+  one_sample.ValueSet(tf2::Vector3(((runif() - 0.5) * 2 * size_[0]) + mu_[0],
                                   ((runif() - 0.5) * 2 * size_[1]) + mu_[1],
                                   ((runif() - 0.5) * 2 * size_[2]) + mu_[2]));
   return true;
 }
 
-tf::Vector3
+tf2::Vector3
 UniformVector::ExpectedValueGet() const
 {
   return mu_;

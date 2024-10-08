@@ -37,14 +37,17 @@
 #ifndef PEOPLE_TRACKING_FILTER_PEOPLE_TRACKING_NODE_H
 #define PEOPLE_TRACKING_FILTER_PEOPLE_TRACKING_NODE_H
 
+#include <rclcpp/subscription.hpp>
+#include <rclcpp/subscription_base.hpp>
 #include <string>
 #include <list>
 #include <boost/thread/mutex.hpp>
 
 // ros stuff
-#include <ros/ros.h>
-#include <tf/tf.h>
-#include <tf/transform_listener.h>
+#include <rclcpp/rclcpp.hpp>
+#include <tf2/LinearMath/Vector3.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
 
 // people tracking stuff
 #include <people_tracking_filter/tracker.h>
@@ -52,8 +55,8 @@
 #include <people_tracking_filter/gaussian_vector.h>
 
 // messages
-#include <sensor_msgs/PointCloud.h>
-#include <people_msgs/PositionMeasurement.h>
+#include <sensor_msgs/msg/point_cloud.hpp>
+#include <people_msgs/msg/position_measurement.hpp>
 #include <message_filters/time_sequencer.h>
 #include <message_filters/subscriber.h>
 
@@ -64,41 +67,40 @@
 namespace estimation
 {
 
-class PeopleTrackingNode
+class PeopleTrackingNode : public rclcpp::Node
 {
 public:
   /// constructor
-  explicit PeopleTrackingNode(ros::NodeHandle nh);
+  explicit PeopleTrackingNode();
 
   /// destructor
   virtual ~PeopleTrackingNode();
 
   /// callback for messages
-  void callbackRcv(const people_msgs::PositionMeasurement::ConstPtr& message);
+  void callbackRcv(people_msgs::msg::PositionMeasurement::SharedPtr message);
 
   /// callback for dropped messages
-  void callbackDrop(const people_msgs::PositionMeasurement::ConstPtr& message);
+  void callbackDrop(people_msgs::msg::PositionMeasurement::SharedPtr message);
 
   /// tracker loop
   void spin();
 
 private:
-  ros::NodeHandle nh_;
+  rclcpp::Publisher<people_msgs::msg::PositionMeasurement>::SharedPtr people_filter_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr people_filter_vis_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr people_tracker_vis_pub_;
 
-  ros::Publisher people_filter_pub_;
-  ros::Publisher people_filter_vis_pub_;
-  ros::Publisher people_tracker_vis_pub_;
-
-  ros::Subscriber people_meas_sub_;
+  rclcpp::Subscription<people_msgs::msg::PositionMeasurement>::SharedPtr people_meas_sub_;
 
   /// message sequencer
-  message_filters::TimeSequencer<people_msgs::PositionMeasurement>*  message_sequencer_;
+  message_filters::TimeSequencer<people_msgs::msg::PositionMeasurement>*  message_sequencer_;
 
   /// trackers
   std::list<Tracker*> trackers_;
 
   // tf listener
-  tf::TransformListener robot_state_;
+  std::shared_ptr<tf2_ros::TransformListener> robot_state_;
+  std::shared_ptr<tf2_ros::Buffer> buffer_;
 
   unsigned int tracker_counter_;
   double freq_, start_distance_min_, reliability_threshold_;
@@ -106,7 +108,7 @@ private:
   std::string fixed_frame_;
   boost::mutex filter_mutex_;
 
-  sensor_msgs::PointCloud  meas_cloud_;
+  sensor_msgs::msg::PointCloud  meas_cloud_;
   unsigned int meas_visualize_counter_;
 
   // Track only one person who the robot will follow.

@@ -47,10 +47,10 @@
 #include <people_tracking_filter/measmodel_pos.h>
 
 // TF
-#include <tf/tf.h>
+#include <tf2/LinearMath/Vector3.h>
 
 // msgs
-#include <sensor_msgs/PointCloud.h>
+#include <sensor_msgs/msg/point_cloud.hpp>
 
 // log files
 #include <fstream>
@@ -90,24 +90,24 @@ public:
 
   /// update tracker
   virtual bool updatePrediction(const double time);
-  virtual bool updateCorrection(const tf::Vector3& meas,
+  virtual bool updateCorrection(const tf2::Vector3& meas,
                                 const MatrixWrapper::SymmetricMatrix& cov);
 
   /// get filter posterior
   virtual void getEstimate(BFL::StatePosVel& est) const;
-  virtual void getEstimate(people_msgs::PositionMeasurement& est) const;
+  virtual void getEstimate(people_msgs::msg::PositionMeasurement& est) const;
 
   // get evenly spaced particle cloud
-  void getParticleCloud(const tf::Vector3& step, double threshold, sensor_msgs::PointCloud& cloud) const;
+  void getParticleCloud(const tf2::Vector3& step, double threshold, sensor_msgs::msg::PointCloud& cloud) const;
 
   /// Get histogram from certain area
-  MatrixWrapper::Matrix getHistogramPos(const tf::Vector3& min, const tf::Vector3& max, const tf::Vector3& step) const;
-  MatrixWrapper::Matrix getHistogramVel(const tf::Vector3& min, const tf::Vector3& max, const tf::Vector3& step) const;
+  MatrixWrapper::Matrix getHistogramPos(const tf2::Vector3& min, const tf2::Vector3& max, const tf2::Vector3& step) const;
+  MatrixWrapper::Matrix getHistogramVel(const tf2::Vector3& min, const tf2::Vector3& max, const tf2::Vector3& step) const;
 
 private:
   // pdf / model / filter
   BFL::MCPdfPosVel                                          prior_;
-  BFL::BootstrapFilter<BFL::StatePosVel, tf::Vector3>*      filter_;
+  BFL::BootstrapFilter<BFL::StatePosVel, tf2::Vector3>*      filter_;
   BFL::SysModelPosVel                                       sys_model_;
   BFL::MeasModelPos                                         meas_model_;
 

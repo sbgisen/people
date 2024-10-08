@@ -46,10 +46,10 @@
 #include <people_tracking_filter/sysmodel_vector.h>
 
 // TF
-#include <tf/tf.h>
+#include <tf2/LinearMath/Vector3.h>
 
 // msgs
-#include <sensor_msgs/PointCloud.h>
+#include <sensor_msgs/msg/point_cloud.hpp>
 
 // log files
 #include <fstream>
@@ -67,7 +67,7 @@ public:
   ~DetectorParticle();
 
   /// initialize detector
-  void initialize(const tf::Vector3& mu, const tf::Vector3& size, const double time);
+  void initialize(const tf2::Vector3& mu, const tf2::Vector3& size, const double time);
 
   /// return if detector was initialized
   bool isInitialized() const
@@ -83,24 +83,24 @@ public:
 
   /// update detector
   bool updatePrediction(const double dt);
-  bool updateCorrection(const tf::Vector3& meas,
+  bool updateCorrection(const tf2::Vector3& meas,
                         const MatrixWrapper::SymmetricMatrix& cov,
                         const double time);
 
   /// get filter posterior
-  void getEstimate(tf::Vector3& est) const;
-  void getEstimate(people_msgs::PositionMeasurement& est) const;
+  void getEstimate(tf2::Vector3& est) const;
+  void getEstimate(people_msgs::msg::PositionMeasurement & est) const;
 
   // get evenly spaced particle cloud
-  void getParticleCloud(const tf::Vector3& step, double threshold, sensor_msgs::PointCloud& cloud) const;
+  void getParticleCloud(const tf2::Vector3& step, double threshold, sensor_msgs::msg::PointCloud& cloud) const;
 
   /// Get histogram from certain area
-  MatrixWrapper::Matrix getHistogram(const tf::Vector3& min, const tf::Vector3& max, const tf::Vector3& step) const;
+  MatrixWrapper::Matrix getHistogram(const tf2::Vector3& min, const tf2::Vector3& max, const tf2::Vector3& step) const;
 
 private:
   // pdf / model / filter
   BFL::MCPdfVector                                          prior_;
-  BFL::BootstrapFilter<tf::Vector3, tf::Vector3>*           filter_;
+  BFL::BootstrapFilter<tf2::Vector3, tf2::Vector3>*           filter_;
   BFL::SysModelVector                                       sys_model_;
   BFL::MeasModelVector                                      meas_model_;
 

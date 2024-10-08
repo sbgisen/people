@@ -42,9 +42,9 @@ static const unsigned int DIM_SYS_VECTOR            = 3;
 namespace BFL
 {
 // Constructor
-SysPdfVector::SysPdfVector(const tf::Vector3& sigma)
-  : ConditionalPdf<tf::Vector3, tf::Vector3>(DIM_SYS_VECTOR, NUM_SYS_VECTOR_COND_ARGS),
-    noise_(tf::Vector3(0, 0, 0), sigma)
+SysPdfVector::SysPdfVector(const tf2::Vector3& sigma)
+  : ConditionalPdf<tf2::Vector3, tf2::Vector3>(DIM_SYS_VECTOR, NUM_SYS_VECTOR_COND_ARGS),
+    noise_(tf2::Vector3(0, 0, 0), sigma)
 {}
 
 // Destructor
@@ -52,7 +52,7 @@ SysPdfVector::~SysPdfVector()
 {}
 
 Probability
-SysPdfVector::ProbabilityGet(const tf::Vector3& state) const
+SysPdfVector::ProbabilityGet(const tf2::Vector3& state) const
 {
   std::cerr << "SysPdfVector::ProbabilityGet Method not applicable" << std::endl;
   assert(0);
@@ -60,27 +60,27 @@ SysPdfVector::ProbabilityGet(const tf::Vector3& state) const
 }
 
 bool
-SysPdfVector::SampleFrom(Sample<tf::Vector3>& one_sample, int method, void *args) const
+SysPdfVector::SampleFrom(Sample<tf2::Vector3>& one_sample, int method, void *args) const
 {
-  tf::Vector3& res = one_sample.ValueGet();
+  tf2::Vector3& res = one_sample.ValueGet();
 
   // get conditional argument: state
   res = this->ConditionalArgumentGet(0);
 
   // add noise
-  Sample<tf::Vector3> noise_sample;
+  Sample<tf2::Vector3> noise_sample;
   noise_.SampleFrom(noise_sample, method, args);
   res += noise_sample.ValueGet();
 
   return true;
 }
 
-tf::Vector3
+tf2::Vector3
 SysPdfVector::ExpectedValueGet() const
 {
   std::cerr << "SysPdfVector::ExpectedValueGet Method not applicable" << std::endl;
   assert(0);
-  return tf::Vector3();
+  return tf2::Vector3();
 }
 
 SymmetricMatrix

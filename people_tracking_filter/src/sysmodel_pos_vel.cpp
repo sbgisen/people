@@ -45,7 +45,7 @@ static const unsigned int DIM_SYS_POS_VEL           = 6;
 // Constructor
 SysPdfPosVel::SysPdfPosVel(const BFL::StatePosVel& sigma)
   : ConditionalPdf<StatePosVel, StatePosVel>(DIM_SYS_POS_VEL, NUM_SYS_POS_VEL_COND_ARGS),
-    noise_(StatePosVel(tf::Vector3(0, 0, 0), tf::Vector3(0, 0, 0)), sigma)
+    noise_(StatePosVel(tf2::Vector3(0, 0, 0), tf2::Vector3(0, 0, 0)), sigma)
 {}
 
 // Destructor
