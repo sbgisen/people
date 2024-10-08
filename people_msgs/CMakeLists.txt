@@ -1,21 +1,20 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.8)
 project(people_msgs)
-find_package(catkin REQUIRED COMPONENTS geometry_msgs message_generation std_msgs)
 
-add_message_files(
-   DIRECTORY msg
-   FILES
-    People.msg
-    Person.msg
-    PersonStamped.msg
-    PositionMeasurement.msg
-    PositionMeasurementArray.msg
+find_package(ament_cmake_auto REQUIRED)
+ament_auto_find_build_dependencies()
+
+file(
+  GLOB MESSAGE_FILES
+  RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+  msg/*.msg
 )
 
-generate_messages(
-   DEPENDENCIES geometry_msgs std_msgs
+rosidl_generate_interfaces(
+  ${PROJECT_NAME}
+  ${MESSAGE_FILES}
+  DEPENDENCIES
+  ${${PROJECT_NAME}_BUILD_DEPENDS}
 )
 
-catkin_package(
-    CATKIN_DEPENDS geometry_msgs message_runtime std_msgs
-)
+ament_auto_package()
