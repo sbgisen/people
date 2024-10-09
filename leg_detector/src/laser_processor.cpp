@@ -37,11 +37,12 @@
 #include <stdexcept>
 #include <list>
 #include <set>
+#include <tf2/LinearMath/Vector3.h>
 
 namespace laser_processor
 {
 
-Sample* Sample::Extract(int ind, const sensor_msgs::LaserScan& scan)
+Sample* Sample::Extract(int ind, const sensor_msgs::msg::LaserScan& scan)
 {
   Sample* s = new Sample();
 
@@ -69,7 +70,7 @@ void SampleSet::clear()
   set<Sample*, CompareSample>::clear();
 }
 
-void SampleSet::appendToCloud(sensor_msgs::PointCloud& cloud, int r, int g, int b)
+void SampleSet::appendToCloud(sensor_msgs::msg::PointCloud& cloud, int r, int g, int b)
 {
   float color_val = 0;
 
@@ -80,7 +81,7 @@ void SampleSet::appendToCloud(sensor_msgs::PointCloud& cloud, int r, int g, int 
        sample_iter != end();
        sample_iter++)
   {
-    geometry_msgs::Point32 point;
+    geometry_msgs::msg::Point32 point;
     point.x = (*sample_iter)->x;
     point.y = (*sample_iter)->y;
     point.z = 0;
@@ -92,7 +93,7 @@ void SampleSet::appendToCloud(sensor_msgs::PointCloud& cloud, int r, int g, int 
   }
 }
 
-tf::Point SampleSet::center()
+tf2::Vector3 SampleSet::center()
 {
   float x_mean = 0.0;
   float y_mean = 0.0;
@@ -105,11 +106,11 @@ tf::Point SampleSet::center()
     y_mean += ((*i)->y) / size();
   }
 
-  return tf::Point(x_mean, y_mean, 0.0);
+  return tf2::Vector3(x_mean, y_mean, 0.0);
 }
 
 
-void ScanMask::addScan(sensor_msgs::LaserScan& scan)
+void ScanMask::addScan(sensor_msgs::msg::LaserScan& scan)
 {
   if (!filled)
   {
@@ -169,7 +170,7 @@ bool ScanMask::hasSample(Sample* s, float thresh)
 
 
 
-ScanProcessor::ScanProcessor(const sensor_msgs::LaserScan& scan, ScanMask& mask_, float mask_threshold)
+ScanProcessor::ScanProcessor(const sensor_msgs::msg::LaserScan& scan, ScanMask& mask_, float mask_threshold)
 {
   scan_ = scan;
 

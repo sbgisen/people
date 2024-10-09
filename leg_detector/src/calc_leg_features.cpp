@@ -39,7 +39,7 @@
 #include <algorithm>
 #include <vector>
 
-std::vector<float> calcLegFeatures(laser_processor::SampleSet* cluster, const sensor_msgs::LaserScan& scan)
+std::vector<float> calcLegFeatures(laser_processor::SampleSet* cluster, const sensor_msgs::msg::LaserScan& scan)
 {
   std::vector<float> features;
 
