@@ -73,7 +73,7 @@ static double max_second_leg_age_s     = 2.0;
 static double max_track_jump_m         = 1.0;
 static double max_meas_jump_m          = 0.75;  // 1.0
 static double leg_pair_separation_m    = 1.0;
-static const char* fixed_frame         = "odom_combined";
+static std::string fixed_frame         = "odom_combined";
 
 static double kal_p = 4, kal_q = .002, kal_r = 10;
 static bool use_filter = true;
@@ -285,6 +285,8 @@ public:
   std::shared_ptr<rclcpp::Publisher<people_msgs::msg::PositionMeasurementArray>> people_measurements_pub_;
   std::shared_ptr<rclcpp::Publisher<people_msgs::msg::PositionMeasurementArray>> leg_measurements_pub_;
   std::shared_ptr<rclcpp::Publisher<visualization_msgs::msg::Marker>> markers_pub_;
+  std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
+  std::shared_ptr<rclcpp::ParameterCallbackHandle> cb_handle_;
 
   rclcpp::Subscription<people_msgs::msg::PositionMeasurement>::SharedPtr people_sub_;
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_sub_;
@@ -314,7 +316,95 @@ public:
     }
 
     this->declare_parameter("use_seeds", !true);
+    this->declare_parameter("connected_thresh", 0.06);
+    this->declare_parameter("min_points_per_group", 5);
+    this->declare_parameter("leg_reliability_limit", 0.7);
+    this->declare_parameter("publish_legs", true);
+    this->declare_parameter("publish_people", true);
+    this->declare_parameter("publish_leg_markers", true);
+    this->declare_parameter("publish_people_markers", true);
+    this->declare_parameter("no_observation_timeout", 0.5);
+    this->declare_parameter("max_second_leg_age", 2.0);
+    this->declare_parameter("max_track_jump", 1.0);
+    this->declare_parameter("max_meas_jump", 0.75);
+    this->declare_parameter("leg_pair_separation", 1.0);
+    this->declare_parameter("fixed_frame", "odom_combined");
+    this->declare_parameter("kalman_p", 4.0);
+    this->declare_parameter("kalman_q", 0.002);
+    this->declare_parameter("kalman_r", 10.0);
+    this->declare_parameter("kalman_on", true);
     this->get_parameter("use_seeds", use_seeds_);
+    this->get_parameter("connected_thresh", connected_thresh_);
+    this->get_parameter("min_points_per_group", min_points_per_group);
+    this->get_parameter("leg_reliability_limit", leg_reliability_limit_);
+    this->get_parameter("publish_legs", publish_legs_);
+    this->get_parameter("publish_people", publish_people_);
+    this->get_parameter("publish_leg_markers", publish_leg_markers_);
+    this->get_parameter("publish_people_markers", publish_people_markers_);
+    this->get_parameter("no_observation_timeout", no_observation_timeout_s);
+    this->get_parameter("max_second_leg_age", max_second_leg_age_s);
+    this->get_parameter("max_track_jump", max_track_jump_m);
+    this->get_parameter("max_meas_jump", max_meas_jump_m);
+    this->get_parameter("leg_pair_separation", leg_pair_separation_m);
+    this->get_parameter("fixed_frame", fixed_frame);
+    this->get_parameter("kalman_p", kal_p);
+    this->get_parameter("kalman_q", kal_q);
+    this->get_parameter("kalman_r", kal_r);
+    this->get_parameter("kalman_on", use_filter);
+
+    param_subscriber_ = std::make_shared<rclcpp::ParameterEventHandler>(this);
+
+    cb_handle_ = param_subscriber_->add_parameter_callback("connected_thresh", [this](const rclcpp::Parameter & p) {
+      connected_thresh_ = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("min_points_per_group", [this](const rclcpp::Parameter & p) {
+      min_points_per_group = p.as_int();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("leg_reliability_limit", [this](const rclcpp::Parameter & p) {
+      leg_reliability_limit_ = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("publish_legs", [this](const rclcpp::Parameter & p) {
+      publish_legs_ = p.as_bool();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("publish_people", [this](const rclcpp::Parameter & p) {
+      publish_people_ = p.as_bool();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("publish_leg_markers", [this](const rclcpp::Parameter & p) {
+      publish_leg_markers_ = p.as_bool();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("publish_people_markers", [this](const rclcpp::Parameter & p) {
+      publish_people_markers_ = p.as_bool();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("no_observation_timeout", [this](const rclcpp::Parameter & p) {
+      no_observation_timeout_s = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("max_second_leg_age", [this](const rclcpp::Parameter & p) {
+      max_second_leg_age_s = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("max_track_jump", [this](const rclcpp::Parameter & p) {
+      max_track_jump_m = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("max_meas_jump", [this](const rclcpp::Parameter & p) {
+      max_meas_jump_m = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("leg_pair_separation", [this](const rclcpp::Parameter & p) {
+      leg_pair_separation_m = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("fixed_frame", [this](const rclcpp::Parameter & p) {
+      fixed_frame = p.as_string().c_str();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("kalman_p", [this](const rclcpp::Parameter & p) {
+      kal_p = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("kalman_q", [this](const rclcpp::Parameter & p) {
+      kal_q = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("kalman_r", [this](const rclcpp::Parameter & p) {
+      kal_r = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("kalman_on", [this](const rclcpp::Parameter & p) {
+      use_filter = p.as_bool();
+    });
 
     // advertise topics
     leg_measurements_pub_ = this->create_publisher<people_msgs::msg::PositionMeasurementArray>("leg_tracker_measurements", 10);
