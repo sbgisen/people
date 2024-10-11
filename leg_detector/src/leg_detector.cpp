@@ -118,6 +118,7 @@ public:
 
     try
     {
+      loc.header.stamp = rclcpp::Time();
       tf_buffer_.transform(loc, loc, fixed_frame);
       // tfl_.transformPoint(fixed_frame, loc, loc);
     }
@@ -854,6 +855,7 @@ public:
       loc.point.y = (*i)->center()[1];
       loc.point.z = (*i)->center()[2];
       try {
+        loc.header.stamp = rclcpp::Time();
         tf_buffer_.transform(loc, loc, fixed_frame);
       } catch (...) {
         RCLCPP_WARN(this->get_logger(), "TF exception spot 3.");
@@ -908,6 +910,7 @@ public:
           // (matched_iter->candidate_->center(), scan->header.stamp, scan->header.frame_id);
           try
           {
+            loc.header.stamp = rclcpp::Time();
             tf_buffer_.transform(loc, loc, fixed_frame);
             // tfl_.transformPoint(fixed_frame, loc, loc);
           }
@@ -945,6 +948,7 @@ public:
         // (matched_iter->candidate_->center(), scan->header.stamp, scan->header.frame_id);
         try
         {
+          loc.header.stamp = rclcpp::Time();
           tf_buffer_.transform(loc, loc, fixed_frame);
           // tfl_.transformPoint(fixed_frame, loc, loc);
         }
