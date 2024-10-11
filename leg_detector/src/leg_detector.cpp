@@ -283,7 +283,7 @@ public:
 
   std::shared_ptr<rclcpp::Publisher<people_msgs::msg::PositionMeasurementArray>> people_measurements_pub_;
   std::shared_ptr<rclcpp::Publisher<people_msgs::msg::PositionMeasurementArray>> leg_measurements_pub_;
-  std::shared_ptr<rclcpp::Publisher<visualization_msgs::msg::Marker>> markers_pub_;
+  std::shared_ptr<rclcpp::Publisher<visualization_msgs::msg::MarkerArray>> markers_pub_;
   std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
   std::shared_ptr<rclcpp::ParameterCallbackHandle> cb_handle_;
 
@@ -408,7 +408,7 @@ public:
     // advertise topics
     leg_measurements_pub_ = this->create_publisher<people_msgs::msg::PositionMeasurementArray>("leg_tracker_measurements", 10);
     people_measurements_pub_ = this->create_publisher<people_msgs::msg::PositionMeasurementArray>("people_tracker_measurements", 10);
-    markers_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("visualization_marker", 10);
+    markers_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("visualization_marker", 10);
 
     if (use_seeds_)
     {
@@ -991,6 +991,7 @@ public:
     int i = 0;
     std::vector<people_msgs::msg::PositionMeasurement> people;
     std::vector<people_msgs::msg::PositionMeasurement> legs;
+    std::vector<visualization_msgs::msg::Marker> markers;
 
     for (std::list<SavedFeature*>::iterator sf_iter = saved_features_.begin();
          sf_iter != saved_features_.end();
@@ -1046,7 +1047,7 @@ public:
           m.color.b = (*sf_iter)->getReliability();
         }
 
-        markers_pub_->publish(m);
+        markers.push_back(m);
       }
 
       if (publish_people_ || publish_people_markers_)
@@ -1103,7 +1104,7 @@ public:
             m.color.g = 1;
             m.lifetime = rclcpp::Duration::from_seconds(0.5);
 
-            markers_pub_->publish(m);
+            markers.push_back(m);
           }
         }
       }
@@ -1120,6 +1121,12 @@ public:
     {
       array.people = people;
       people_measurements_pub_->publish(array);
+    }
+    if (publish_leg_markers_ || publish_people_markers_)
+    {
+      visualization_msgs::msg::MarkerArray msg;
+      msg.markers = markers;
+      markers_pub_->publish(msg);
     }
   }
 };
