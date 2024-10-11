@@ -134,7 +134,7 @@ public:
     // tfl_.setTransform(pose);
 
     BFL::StatePosVel prior_sigma(tf2::Vector3(0.1, 0.1, 0.1), tf2::Vector3(0.0000001, 0.0000001, 0.0000001));
-    BFL::StatePosVel mu(tf2::Vector3(loc.point.x, loc.point.y, loc.point.z), tf2::Vector3(0.0000001, 0.0000001, 0.0000001));
+    BFL::StatePosVel mu(tf2::Vector3(loc.point.x, loc.point.y, loc.point.z), tf2::Vector3(0, 0 ,0));
     filter_.initialize(mu, prior_sigma, time_.seconds());
 
     BFL::StatePosVel est;
