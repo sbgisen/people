@@ -154,9 +154,8 @@ public:
 
   void update(geometry_msgs::msg::PointStamped loc, double probability)
   {
-    if (loc.header.stamp.sec + loc.header.stamp.nanosec*1e-9 <= meas_time_.seconds())
-    {
-      loc.header.stamp = meas_time_ + rclcpp::Duration(0,1e5);
+    if (rclcpp::Time(loc.header.stamp).seconds() <= meas_time_.seconds()) {
+      loc.header.stamp = meas_time_ + rclcpp::Duration::from_seconds(0.0001);
     }
     geometry_msgs::msg::TransformStamped pose;
     pose.header = loc.header;
@@ -510,8 +509,9 @@ public:
     {
       try
       {
-        std::chrono::nanoseconds time(static_cast<int>(people_meas->header.stamp.sec * 1e9 + people_meas->header.stamp.nanosec));
-        tf_buffer_.transform(person_loc, dest_loc, (*it1)->id_, tf2::TimePoint(time), fixed_frame);
+        std::chrono::nanoseconds time(rclcpp::Time(people_meas->header.stamp).nanoseconds());
+        tf_buffer_.transform(person_loc, dest_loc, (*it1)->id_,
+                                            tf2::TimePoint(time), fixed_frame);
         // tfl_.transformPoint((*it1)->id_, people_meas->header.stamp,
         //                     person_loc, fixed_frame, dest_loc);
         RCLCPP_INFO(this->get_logger(), "Succesful leg transformation at spot 7");
@@ -649,8 +649,7 @@ public:
 
         // Get the distance between the two legs
         try {
-          std::chrono::nanoseconds time(static_cast<int>(
-            (*it2)->position_.header.stamp.sec * 1e9 + (*it2)->position_.header.stamp.nanosec));
+          std::chrono::nanoseconds time(rclcpp::Time(people_meas->header.stamp).nanoseconds());
           tf_buffer_.transform((*it2)->position_,dest_loc, (*it1)->id_, tf2::TimePoint(time), fixed_frame);
         } catch (...) {
           RCLCPP_WARN(this->get_logger(), "TF exception getting distance between legs in spot 2.");
@@ -808,7 +807,7 @@ public:
     RCLCPP_INFO(this->get_logger(), "Processing %d clusters.", processor.getClusters().size());
 
     // if no measurement matches to a tracker in the last <no_observation_timeout>  seconds: erase tracker
-    rclcpp::Time purge = scan->header.stamp + rclcpp::Duration(-no_observation_timeout_s, 0);
+    rclcpp::Time purge = scan->header.stamp + rclcpp::Duration::from_seconds(-no_observation_timeout_s);
     std::list<SavedFeature*>::iterator sf_iter = saved_features_.begin();
     while (sf_iter != saved_features_.end())
     {
@@ -1037,7 +1036,7 @@ public:
         m.scale.y = .1;
         m.scale.z = .1;
         m.color.a = 1;
-        m.lifetime = rclcpp::Duration(0, 5e8);
+        m.lifetime = rclcpp::Duration::from_seconds(0.5);
         if ((*sf_iter)->object_id != "")
         {
           m.color.r = 1;
@@ -1102,7 +1101,7 @@ public:
             m.scale.z = .2;
             m.color.a = 1;
             m.color.g = 1;
-            m.lifetime = rclcpp::Duration(0, 5e8);
+            m.lifetime = rclcpp::Duration::from_seconds(0.5);
 
             markers_pub_->publish(m);
           }

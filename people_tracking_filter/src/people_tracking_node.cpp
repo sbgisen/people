@@ -153,7 +153,7 @@ void PeopleTrackingNode::callbackRcv(const people_msgs::msg::PositionMeasurement
   // update tracker if matching tracker found
   for (std::list<Tracker *>::iterator it = trackers_.begin(); it != trackers_.end(); it++)
     if ((*it)->getName() == message->object_id) {
-      (*it)->updatePrediction(message->header.stamp.sec + message->header.stamp.nanosec * 1e-9);
+      (*it)->updatePrediction(rclcpp::Time(message->header.stamp).seconds());
       (*it)->updateCorrection(tf2::Vector3(meas.point.x, meas.point.y, meas.point.z), cov);
     }
   // check if reliable message with no name should be a new tracker
@@ -194,8 +194,8 @@ void PeopleTrackingNode::callbackRcv(const people_msgs::msg::PositionMeasurement
         Tracker * new_tracker = new TrackerKalman(tracker_name.str(), sys_sigma_);
         // Tracker* new_tracker = new TrackerParticle(tracker_name.str(), num_particles_tracker, sys_sigma_);
         new_tracker->initialize(
-          tf2::Vector3(meas.point.x, meas.point.y, meas.point.z), prior_sigma,
-          message->header.stamp.sec + message->header.stamp.nanosec * 1e-9);
+            tf2::Vector3(meas.point.x, meas.point.y, meas.point.z), prior_sigma,
+            rclcpp::Time(message->header.stamp).seconds());
         trackers_.push_back(new_tracker);
         RCLCPP_INFO(this->get_logger(), "Initialized new tracker %s", tracker_name.str().c_str());
       } else {
