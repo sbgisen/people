@@ -804,8 +804,6 @@ public:
 
     cv::Mat tmp_mat = cv::Mat(1, feat_count_, CV_32FC1);
 
-    RCLCPP_INFO(this->get_logger(), "Processing %d clusters.", processor.getClusters().size());
-
     // if no measurement matches to a tracker in the last <no_observation_timeout>  seconds: erase tracker
     rclcpp::Time purge = scan->header.stamp + rclcpp::Duration::from_seconds(-no_observation_timeout_s);
     std::list<SavedFeature*>::iterator sf_iter = saved_features_.begin();
