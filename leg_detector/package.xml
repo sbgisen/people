@@ -10,7 +10,7 @@
   <author>Caroline Pantofaru</author>
 
   <buildtool_depend>ament_cmake_auto</buildtool_depend>
-  <depend>liborocos-bfl</depend>
+  <depend>orocos_bfl_vendor</depend>
   <depend>geometry_msgs</depend>
   <depend>image_geometry</depend>
   <depend>laser_geometry</depend>

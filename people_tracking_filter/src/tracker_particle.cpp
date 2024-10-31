@@ -69,7 +69,7 @@ void TrackerParticle::initialize(const BFL::StatePosVel& mu, const BFL::StatePos
 
   BFL::GaussianPosVel gauss_pos_vel(mu, sigma);
   std::vector<BFL::Sample<BFL::StatePosVel> > prior_samples(num_particles_);
-  gauss_pos_vel.SampleFrom(prior_samples, num_particles_, CHOLESKY, NULL);
+  gauss_pos_vel.SampleFrom(prior_samples, num_particles_, 0/*CHOLESKY*/, NULL);
   prior_.ListOfSamplesSet(prior_samples);
   filter_ = new BFL::BootstrapFilter<BFL::StatePosVel, tf2::Vector3>(&prior_, &prior_, 0, num_particles_ / 4.0);
 

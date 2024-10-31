@@ -3,15 +3,8 @@ project(people_tracking_filter)
 
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
-
-# Look for bfl (Bayesian Filtering Library)
-find_package(PkgConfig)
-pkg_check_modules(
-  BFL
-  REQUIRED
-  orocos-bfl
-)
 link_directories(${BFL_LIBRARY_DIRS})
+include_directories(${BFL_INCLUDE_DIRS})
 
 find_package(Boost REQUIRED COMPONENTS thread)
 

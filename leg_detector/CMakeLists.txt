@@ -3,14 +3,9 @@ project(leg_detector)
 
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
-# look for bfl (Bayesian Filtering Library)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(
-  BFL
-  REQUIRED
-  orocos-bfl
-)
 find_package(OpenCV REQUIRED)
+link_directories(${BFL_LIBRARY_DIRS})
+include_directories(${BFL_INCLUDE_DIRS})
 
 # Look for Bullet
 pkg_check_modules(BULLET bullet)
