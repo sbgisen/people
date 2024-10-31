@@ -85,10 +85,10 @@ GaussianPosVel::SampleFrom(std::vector<Sample<StatePosVel> >& list_samples, cons
 bool
 GaussianPosVel::SampleFrom(Sample<StatePosVel>& one_sample, int method, void * args) const
 {
-  one_sample.ValueSet(StatePosVel(tf::Vector3(rnorm(mu_.pos_[0], sigma_.pos_[0]*dt_),
+  one_sample.ValueSet(StatePosVel(tf2::Vector3(rnorm(mu_.pos_[0], sigma_.pos_[0]*dt_),
                                               rnorm(mu_.pos_[1], sigma_.pos_[1]*dt_),
                                               rnorm(mu_.pos_[2], sigma_.pos_[2]*dt_)),
-                                  tf::Vector3(rnorm(mu_.vel_[0], sigma_.vel_[0]*dt_),
+                                  tf2::Vector3(rnorm(mu_.vel_[0], sigma_.vel_[0]*dt_),
                                               rnorm(mu_.vel_[1], sigma_.vel_[1]*dt_),
                                               rnorm(mu_.vel_[2], sigma_.vel_[2]*dt_))));
   return true;

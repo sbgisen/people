@@ -38,7 +38,8 @@
 #ifndef PEOPLE_TRACKING_FILTER_STATE_POS_VEL_H
 #define PEOPLE_TRACKING_FILTER_STATE_POS_VEL_H
 
-#include <tf/tf.h>
+#include <tf2/LinearMath/Vector3.h>
+#include <ostream>
 
 namespace BFL
 {
@@ -46,11 +47,11 @@ namespace BFL
 class StatePosVel
 {
 public:
-  tf::Vector3 pos_, vel_;
+  tf2::Vector3 pos_, vel_;
 
   /// Constructor
-  StatePosVel(const tf::Vector3& pos = tf::Vector3(0, 0, 0),
-              const tf::Vector3& vel = tf::Vector3(0, 0, 0)):  pos_(pos), vel_(vel) {}
+  StatePosVel(const tf2::Vector3& pos = tf2::Vector3(0, 0, 0),
+              const tf2::Vector3& vel = tf2::Vector3(0, 0, 0)):  pos_(pos), vel_(vel) {}
 
   /// Destructor
   ~StatePosVel() {}

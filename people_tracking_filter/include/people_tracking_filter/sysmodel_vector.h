@@ -48,11 +48,11 @@ namespace BFL
 {
 
 class SysPdfVector
-  : public ConditionalPdf<tf::Vector3, tf::Vector3>
+  : public ConditionalPdf<tf2::Vector3, tf2::Vector3>
 {
 public:
   /// Constructor
-  explicit SysPdfVector(const tf::Vector3& sigma);
+  explicit SysPdfVector(const tf2::Vector3& sigma);
 
   /// Destructor
   virtual ~SysPdfVector();
@@ -64,9 +64,9 @@ public:
   }
 
   // Redefining pure virtual methods
-  virtual bool SampleFrom(BFL::Sample<tf::Vector3>& one_sample, int method, void *args) const;
-  virtual tf::Vector3 ExpectedValueGet() const;  // not applicable
-  virtual Probability ProbabilityGet(const tf::Vector3& state) const;  // not applicable
+  virtual bool SampleFrom(BFL::Sample<tf2::Vector3>& one_sample, int method, void *args) const;
+  virtual tf2::Vector3 ExpectedValueGet() const;  // not applicable
+  virtual Probability ProbabilityGet(const tf2::Vector3& state) const;  // not applicable
   virtual MatrixWrapper::SymmetricMatrix  CovarianceGet() const;  // Not applicable
 
 private:
@@ -75,11 +75,11 @@ private:
 };  // class
 
 class SysModelVector
-  : public SystemModel<tf::Vector3>
+  : public SystemModel<tf2::Vector3>
 {
 public:
-  explicit SysModelVector(const tf::Vector3& sigma)
-    : SystemModel<tf::Vector3>(new SysPdfVector(sigma))
+  explicit SysModelVector(const tf2::Vector3& sigma)
+    : SystemModel<tf2::Vector3>(new SysPdfVector(sigma))
   {}
 
   /// destructor

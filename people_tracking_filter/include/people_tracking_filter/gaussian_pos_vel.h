@@ -73,9 +73,9 @@ public:
 
   // Redefinition of pure virtuals
   virtual Probability ProbabilityGet(const StatePosVel& input) const;
-  bool SampleFrom(vector<Sample<StatePosVel> >& list_samples, const int num_samples, int method = DEFAULT,
+  bool SampleFrom(vector<Sample<StatePosVel> >& list_samples, const int num_samples, int method = 0,
                   void * args = NULL) const;
-  virtual bool SampleFrom(Sample<StatePosVel>& one_sample, int method = DEFAULT, void * args = NULL) const;
+  virtual bool SampleFrom(Sample<StatePosVel>& one_sample, int method = 0, void * args = NULL) const;
 
   virtual StatePosVel ExpectedValueGet() const;
   virtual MatrixWrapper::SymmetricMatrix CovarianceGet() const;

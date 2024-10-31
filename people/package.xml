@@ -1,4 +1,6 @@
-<package format="2">
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
   <name>people</name>
   <version>1.4.2</version>
   <description>The people stack holds algorithms for perceiving people from a number of sensors.</description>
@@ -9,14 +11,14 @@
 
   <url type="website">http://ros.org/wiki/people</url>
   <author>Caroline Pantofaru</author>
-  <buildtool_depend>catkin</buildtool_depend>
-  <exec_depend>face_detector</exec_depend>
+  <buildtool_depend>ament_cmake_auto</buildtool_depend>
+  <!-- <exec_depend>face_detector</exec_depend> -->
   <exec_depend>leg_detector</exec_depend>
   <exec_depend>people_msgs</exec_depend>
   <exec_depend>people_tracking_filter</exec_depend>
-  <exec_depend>people_velocity_tracker</exec_depend>
+  <!-- <exec_depend>people_velocity_tracker</exec_depend> -->
 
   <export>
-    <metapackage/>
+    <build_type>ament_cmake</build_type>
   </export>
 </package>

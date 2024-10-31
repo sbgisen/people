@@ -35,6 +35,7 @@
 /* Author: Wim Meeussen */
 
 #include <people_tracking_filter/tracker_kalman.h>
+#include <rclcpp/rclcpp.hpp>
 #include <algorithm>
 #include <string>
 
@@ -152,7 +153,7 @@ bool TrackerKalman::updatePrediction(const double time)
 };
 
 // update filter correction
-bool TrackerKalman::updateCorrection(const tf::Vector3&  meas, const MatrixWrapper::SymmetricMatrix& cov)
+bool TrackerKalman::updateCorrection(const tf2::Vector3&  meas, const MatrixWrapper::SymmetricMatrix& cov)
 {
   assert(cov.columns() == 3);
 
@@ -182,7 +183,7 @@ void TrackerKalman::getEstimate(BFL::StatePosVel& est) const
   }
 };
 
-void TrackerKalman::getEstimate(people_msgs::PositionMeasurement& est) const
+void TrackerKalman::getEstimate(people_msgs::msg::PositionMeasurement& est) const
 {
   ColumnVector tmp = filter_->PostGet()->ExpectedValueGet();
 
@@ -190,7 +191,7 @@ void TrackerKalman::getEstimate(people_msgs::PositionMeasurement& est) const
   est.pos.y = tmp(2);
   est.pos.z = tmp(3);
 
-  est.header.stamp.fromSec(filter_time_);
+  est.header.stamp.set__nanosec(filter_time_ * 1e9);
   est.object_id = getName();
 }
 

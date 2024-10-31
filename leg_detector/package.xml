@@ -1,30 +1,34 @@
-<package format="2">
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
   <name>leg_detector</name>
   <version>1.4.2</version>
   <description>Leg Detector using a machine learning approach to find leg-like patterns of laser scanner readings.</description>
-  <author>Caroline Pantofaru</author>
   <maintainer email="davidvlu@gmail.com">David V. Lu!!</maintainer>
   <license>BSD</license>
   <url>http://ros.org/wiki/leg_detector</url>
+  <author>Caroline Pantofaru</author>
 
-  <buildtool_depend>catkin</buildtool_depend>
-  <depend>liborocos-bfl</depend>
-  <depend>dynamic_reconfigure</depend>
+  <buildtool_depend>ament_cmake_auto</buildtool_depend>
+  <depend>orocos_bfl_vendor</depend>
   <depend>geometry_msgs</depend>
   <depend>image_geometry</depend>
   <depend>laser_geometry</depend>
   <depend>message_filters</depend>
   <depend>people_msgs</depend>
   <depend>people_tracking_filter</depend>
-  <depend>roscpp</depend>
+  <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
   <depend>std_srvs</depend>
-  <depend>tf</depend>
+  <depend>tf2</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>tf2_ros</depend>
   <depend>visualization_msgs</depend>
   <exec_depend>laser_filters</exec_depend>
   <exec_depend>map_laser</exec_depend>
-  <test_depend>roslaunch</test_depend>
-  <test_depend>roslint</test_depend>
 
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 </package>

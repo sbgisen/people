@@ -31,41 +31,49 @@
 *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
-#include <ros/ros.h>
-
-#include <leg_detector/LegDetectorConfig.h>
-#include <leg_detector/laser_processor.h>
+#include <bfl/pdf/pdf.h>
 #include <leg_detector/calc_leg_features.h>
-
-#include <opencv2/core/core_c.h>
-#include <opencv2/ml.hpp>
-
-#include <people_msgs/PositionMeasurement.h>
-#include <people_msgs/PositionMeasurementArray.h>
-#include <sensor_msgs/LaserScan.h>
-
-#include <tf/transform_listener.h>
-#include <tf/message_filter.h>
+#include <leg_detector/laser_processor.h>
 #include <message_filters/subscriber.h>
-
-#include <people_tracking_filter/tracker_kalman.h>
-#include <people_tracking_filter/state_pos_vel.h>
+#include <opencv2/core/core_c.h>
 #include <people_tracking_filter/rgb.h>
-#include <visualization_msgs/Marker.h>
-#include <dynamic_reconfigure/server.h>
+#include <people_tracking_filter/state_pos_vel.h>
+#include <people_tracking_filter/tracker_kalman.h>
+#include <tf2/LinearMath/Vector3.h>
+#include <tf2/time.h>
+#include <tf2/transform_datatypes.h>
+#include <tf2_ros/message_filter.h>
+#include <tf2_ros/transform_listener.h>
 
 #include <algorithm>
+#include <cmath>
 #include <list>
+#include <memory>
+#include <opencv2/ml.hpp>
+#include <people_msgs/msg/position_measurement.hpp>
+#include <people_msgs/msg/position_measurement_array.hpp>
+#include <rclcpp/logging.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/subscription.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
 #include <set>
 #include <string>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <vector>
+#include <visualization_msgs/msg/marker.hpp>
+
+#include "geometry_msgs/msg/point_stamped.hpp"
+#include "geometry_msgs/msg/transform.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
+#include "people_msgs/msg/position_measurement_array.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
 
 static double no_observation_timeout_s = 0.5;
 static double max_second_leg_age_s     = 2.0;
 static double max_track_jump_m         = 1.0;
 static double max_meas_jump_m          = 0.75;  // 1.0
 static double leg_pair_separation_m    = 1.0;
-static const char* fixed_frame         = "odom_combined";
+static std::string fixed_frame         = "odom_combined";
 
 static double kal_p = 4, kal_q = .002, kal_r = 10;
 static bool use_filter = true;
@@ -75,51 +83,60 @@ class SavedFeature
 {
 public:
   static int nextid;
-  tf::TransformListener& tfl_;
+  tf2_ros::Buffer& tf_buffer_;
 
   BFL::StatePosVel sys_sigma_;
   estimation::TrackerKalman filter_;
 
   std::string id_;
   std::string object_id;
-  ros::Time time_;
-  ros::Time meas_time_;
+  rclcpp::Time time_;
+  rclcpp::Time meas_time_;
 
   double reliability, p;
 
-  tf::Stamped<tf::Point> position_;
+  geometry_msgs::msg::PointStamped position_;
   SavedFeature* other;
   float dist_to_person_;
 
   // one leg tracker
-  SavedFeature(tf::Stamped<tf::Point> loc, tf::TransformListener& tfl)
-    : tfl_(tfl),
-      sys_sigma_(tf::Vector3(0.05, 0.05, 0.05), tf::Vector3(1.0, 1.0, 1.0)),
-      filter_("tracker_name", sys_sigma_),
-      reliability(-1.), p(4)
+  SavedFeature(geometry_msgs::msg::PointStamped loc, tf2_ros::Buffer & buffer)
+  : tf_buffer_(buffer),
+    sys_sigma_(tf2::Vector3(0.05, 0.05, 0.05), tf2::Vector3(1.0, 1.0, 1.0)),
+    filter_("tracker_name", sys_sigma_),
+    reliability(-1.),
+    p(4)
   {
     char id[100];
     snprintf(id, sizeof(id), "legtrack%d", nextid++);
     id_ = std::string(id);
 
     object_id = "";
-    time_ = loc.stamp_;
-    meas_time_ = loc.stamp_;
+    time_ = loc.header.stamp;
+    meas_time_ = loc.header.stamp;
     other = NULL;
 
     try
     {
-      tfl_.transformPoint(fixed_frame, loc, loc);
+      loc.header.stamp = rclcpp::Time();
+      tf_buffer_.transform(loc, loc, fixed_frame);
+      // tfl_.transformPoint(fixed_frame, loc, loc);
     }
     catch (...)
     {
-      ROS_WARN("TF exception spot 6.");
+      // RCLCPP_WARN("TF exception spot 6.");
     }
-    tf::StampedTransform pose(tf::Pose(tf::Quaternion(0.0, 0.0, 0.0, 1.0), loc), loc.stamp_, loc.frame_id_, id_);
-    tfl_.setTransform(pose);
+    geometry_msgs::msg::TransformStamped pose;
+    pose.header = loc.header;
+    pose.transform.rotation.w = 1.0;
+    pose.child_frame_id = id_;
+    tf_buffer_.setTransform(pose, id_);
+    // tf2::Stamped<tf2::Transform> pose(tf2::Pose(tf2::Quaternion(0.0, 0.0, 0.0, 1.0), loc), loc.stamp_, loc.frame_id_, id_);
+    // tfl_.setTransform(pose);
 
-    BFL::StatePosVel prior_sigma(tf::Vector3(0.1, 0.1, 0.1), tf::Vector3(0.0000001, 0.0000001, 0.0000001));
-    filter_.initialize(loc, prior_sigma, time_.toSec());
+    BFL::StatePosVel prior_sigma(tf2::Vector3(0.1, 0.1, 0.1), tf2::Vector3(0.0000001, 0.0000001, 0.0000001));
+    BFL::StatePosVel mu(tf2::Vector3(loc.point.x, loc.point.y, loc.point.z), tf2::Vector3(0, 0 ,0));
+    filter_.initialize(mu, prior_sigma, time_.seconds());
 
     BFL::StatePosVel est;
     filter_.getEstimate(est);
@@ -127,25 +144,28 @@ public:
     updatePosition();
   }
 
-  void propagate(ros::Time time)
+  void propagate(rclcpp::Time time)
   {
     time_ = time;
 
-    filter_.updatePrediction(time.toSec());
+    filter_.updatePrediction(time.seconds());
 
     updatePosition();
   }
 
-  void update(tf::Stamped<tf::Point> loc, double probability)
+  void update(geometry_msgs::msg::PointStamped loc, double probability)
   {
-    if (loc.stamp_ <= meas_time_)
-    {
-      loc.stamp_ = meas_time_ + ros::Duration(0.0001);
+    if (rclcpp::Time(loc.header.stamp).seconds() <= meas_time_.seconds()) {
+      loc.header.stamp = meas_time_ + rclcpp::Duration::from_seconds(0.0001);
     }
-    tf::StampedTransform pose(tf::Pose(tf::Quaternion(0.0, 0.0, 0.0, 1.0), loc), loc.stamp_, loc.frame_id_, id_);
-    tfl_.setTransform(pose);
+    geometry_msgs::msg::TransformStamped pose;
+    pose.header = loc.header;
+    pose.transform.rotation.w = 1.0;
+    pose.child_frame_id = id_;
+    tf_buffer_.setTransform(pose, id_);
+    // tfl_.setTransform(pose);
 
-    meas_time_ = loc.stamp_;
+    meas_time_ = loc.header.stamp;
     time_ = meas_time_;
 
     MatrixWrapper::SymmetricMatrix cov(3);
@@ -154,7 +174,7 @@ public:
     cov(2, 2) = 0.0025;
     cov(3, 3) = 0.0025;
 
-    filter_.updateCorrection(loc, cov);
+    filter_.updateCorrection(tf2::Vector3(loc.point.x, loc.point.y, loc.point.z), cov);
 
     updatePosition();
 
@@ -188,11 +208,11 @@ private:
     BFL::StatePosVel est;
     filter_.getEstimate(est);
 
-    position_[0] = est.pos_[0];
-    position_[1] = est.pos_[1];
-    position_[2] = est.pos_[2];
-    position_.stamp_ = time_;
-    position_.frame_id_ = fixed_frame;
+    position_.point.x = est.pos_[0];
+    position_.point.y = est.pos_[1];
+    position_.point.z = est.pos_[2];
+    position_.header.stamp = time_;
+    position_.header.frame_id = fixed_frame;
     double nreliability = fmin(1.0, fmax(0.1, est.vel_.length() / 0.5));
     // reliability = fmax(reliability, nreliability);
   }
@@ -231,12 +251,12 @@ char** g_argv;
 
 
 // actual legdetector node
-class LegDetector
+class LegDetector:public rclcpp::Node
 {
 public:
-  ros::NodeHandle nh_;
 
-  tf::TransformListener tfl_;
+  tf2_ros::Buffer tf_buffer_;
+  tf2_ros::TransformListener tfl_;
 
   laser_processor::ScanMask mask_;
 
@@ -252,7 +272,7 @@ public:
   char save_[100];
 
   std::list<SavedFeature*> saved_features_;
-  boost::mutex saved_mutex_;
+  std::mutex saved_mutex_;
 
   int feature_id_;
 
@@ -262,59 +282,145 @@ public:
   double leg_reliability_limit_;
   int min_points_per_group;
 
-  ros::Publisher people_measurements_pub_;
-  ros::Publisher leg_measurements_pub_;
-  ros::Publisher markers_pub_;
+  std::shared_ptr<rclcpp::Publisher<people_msgs::msg::PositionMeasurementArray>> people_measurements_pub_;
+  std::shared_ptr<rclcpp::Publisher<people_msgs::msg::PositionMeasurementArray>> leg_measurements_pub_;
+  std::shared_ptr<rclcpp::Publisher<visualization_msgs::msg::MarkerArray>> markers_pub_;
+  std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
+  std::shared_ptr<rclcpp::ParameterCallbackHandle> cb_handle_;
 
-  dynamic_reconfigure::Server<leg_detector::LegDetectorConfig> server_;
+  rclcpp::Subscription<people_msgs::msg::PositionMeasurement>::SharedPtr people_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_sub_;
+  // message_filters::Subscriber<people_msgs::msg::PositionMeasurement> people_sub_;
+  // message_filters::Subscriber<sensor_msgs::msg::LaserScan> laser_sub_;
+  // tf2_ros::MessageFilter<people_msgs::msg::PositionMeasurement> people_notifier_;
+  // tf2_ros::MessageFilter<sensor_msgs::msg::LaserScan> laser_notifier_;
 
-  message_filters::Subscriber<people_msgs::PositionMeasurement> people_sub_;
-  message_filters::Subscriber<sensor_msgs::LaserScan> laser_sub_;
-  tf::MessageFilter<people_msgs::PositionMeasurement> people_notifier_;
-  tf::MessageFilter<sensor_msgs::LaserScan> laser_notifier_;
-
-  explicit LegDetector(ros::NodeHandle nh) :
-    nh_(nh),
+  explicit LegDetector(int argc, char * argv[])
+  : rclcpp::Node("leg_detector"),
     mask_count_(0),
     feat_count_(0),
     next_p_id_(0),
-    people_sub_(nh_, "people_tracker_filter", 10),
-    laser_sub_(nh_, "scan", 10),
-    people_notifier_(people_sub_, tfl_, fixed_frame, 10),
-    laser_notifier_(laser_sub_, tfl_, fixed_frame, 10)
+    tf_buffer_(this->get_clock()),
+    tfl_(tf_buffer_)
   {
-    if (g_argc > 1)
-    {
+    if (argc > 1) {
       forest = cv::ml::RTrees::create();
-      cv::String feature_file = cv::String(g_argv[1]);
+      cv::String feature_file = cv::String(argv[1]);
       forest = cv::ml::StatModel::load<cv::ml::RTrees>(feature_file);
       feat_count_ = forest->getVarCount();
-      printf("Loaded forest with %d features: %s\n", feat_count_, g_argv[1]);
-    }
-    else
-    {
-      printf("Please provide a trained random forests classifier as an input.\n");
-      ros::shutdown();
+      RCLCPP_INFO(this->get_logger(), "Loaded forest with %d features: %s\n", feat_count_, argv[1]);
+    } else {
+      RCLCPP_INFO(
+        this->get_logger(), "Please provide a trained random forests classifier as an input.\n");
+      rclcpp::shutdown();
     }
 
-    nh_.param<bool>("use_seeds", use_seeds_, !true);
+    this->declare_parameter("use_seeds", !true);
+    this->declare_parameter("connected_thresh", 0.06);
+    this->declare_parameter("min_points_per_group", 5);
+    this->declare_parameter("leg_reliability_limit", 0.7);
+    this->declare_parameter("publish_legs", true);
+    this->declare_parameter("publish_people", true);
+    this->declare_parameter("publish_leg_markers", true);
+    this->declare_parameter("publish_people_markers", true);
+    this->declare_parameter("no_observation_timeout", 0.5);
+    this->declare_parameter("max_second_leg_age", 2.0);
+    this->declare_parameter("max_track_jump", 1.0);
+    this->declare_parameter("max_meas_jump", 0.75);
+    this->declare_parameter("leg_pair_separation", 1.0);
+    this->declare_parameter("fixed_frame", "odom_combined");
+    this->declare_parameter("kalman_p", 4.0);
+    this->declare_parameter("kalman_q", 0.002);
+    this->declare_parameter("kalman_r", 10.0);
+    this->declare_parameter("kalman_on", true);
+    this->get_parameter("use_seeds", use_seeds_);
+    this->get_parameter("connected_thresh", connected_thresh_);
+    this->get_parameter("min_points_per_group", min_points_per_group);
+    this->get_parameter("leg_reliability_limit", leg_reliability_limit_);
+    this->get_parameter("publish_legs", publish_legs_);
+    this->get_parameter("publish_people", publish_people_);
+    this->get_parameter("publish_leg_markers", publish_leg_markers_);
+    this->get_parameter("publish_people_markers", publish_people_markers_);
+    this->get_parameter("no_observation_timeout", no_observation_timeout_s);
+    this->get_parameter("max_second_leg_age", max_second_leg_age_s);
+    this->get_parameter("max_track_jump", max_track_jump_m);
+    this->get_parameter("max_meas_jump", max_meas_jump_m);
+    this->get_parameter("leg_pair_separation", leg_pair_separation_m);
+    this->get_parameter("fixed_frame", fixed_frame);
+    this->get_parameter("kalman_p", kal_p);
+    this->get_parameter("kalman_q", kal_q);
+    this->get_parameter("kalman_r", kal_r);
+    this->get_parameter("kalman_on", use_filter);
+
+    param_subscriber_ = std::make_shared<rclcpp::ParameterEventHandler>(this);
+
+    cb_handle_ = param_subscriber_->add_parameter_callback("connected_thresh", [this](const rclcpp::Parameter & p) {
+      connected_thresh_ = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("min_points_per_group", [this](const rclcpp::Parameter & p) {
+      min_points_per_group = p.as_int();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("leg_reliability_limit", [this](const rclcpp::Parameter & p) {
+      leg_reliability_limit_ = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("publish_legs", [this](const rclcpp::Parameter & p) {
+      publish_legs_ = p.as_bool();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("publish_people", [this](const rclcpp::Parameter & p) {
+      publish_people_ = p.as_bool();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("publish_leg_markers", [this](const rclcpp::Parameter & p) {
+      publish_leg_markers_ = p.as_bool();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("publish_people_markers", [this](const rclcpp::Parameter & p) {
+      publish_people_markers_ = p.as_bool();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("no_observation_timeout", [this](const rclcpp::Parameter & p) {
+      no_observation_timeout_s = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("max_second_leg_age", [this](const rclcpp::Parameter & p) {
+      max_second_leg_age_s = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("max_track_jump", [this](const rclcpp::Parameter & p) {
+      max_track_jump_m = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("max_meas_jump", [this](const rclcpp::Parameter & p) {
+      max_meas_jump_m = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("leg_pair_separation", [this](const rclcpp::Parameter & p) {
+      leg_pair_separation_m = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("fixed_frame", [this](const rclcpp::Parameter & p) {
+      fixed_frame = p.as_string().c_str();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("kalman_p", [this](const rclcpp::Parameter & p) {
+      kal_p = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("kalman_q", [this](const rclcpp::Parameter & p) {
+      kal_q = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("kalman_r", [this](const rclcpp::Parameter & p) {
+      kal_r = p.as_double();
+    });
+    cb_handle_ = param_subscriber_->add_parameter_callback("kalman_on", [this](const rclcpp::Parameter & p) {
+      use_filter = p.as_bool();
+    });
 
     // advertise topics
-    leg_measurements_pub_ = nh_.advertise<people_msgs::PositionMeasurementArray>("leg_tracker_measurements", 0);
-    people_measurements_pub_ = nh_.advertise<people_msgs::PositionMeasurementArray>("people_tracker_measurements", 0);
-    markers_pub_ = nh_.advertise<visualization_msgs::Marker>("visualization_marker", 20);
+    leg_measurements_pub_ = this->create_publisher<people_msgs::msg::PositionMeasurementArray>("leg_tracker_measurements", 10);
+    people_measurements_pub_ = this->create_publisher<people_msgs::msg::PositionMeasurementArray>("people_tracker_measurements", 10);
+    markers_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("visualization_marker", 10);
 
     if (use_seeds_)
     {
-      people_notifier_.registerCallback(boost::bind(&LegDetector::peopleCallback, this, _1));
-      people_notifier_.setTolerance(ros::Duration(0.01));
+      people_sub_ = this->create_subscription<people_msgs::msg::PositionMeasurement>("people", 10, std::bind(&LegDetector::peopleCallback, this, std::placeholders::_1));
+      // people_notifier_.registerCallback(std::bind(&LegDetector::peopleCallback, this, std::placeholders::_1));
+      // people_notifier_.setTolerance(rclcpp::Duration(0, 1e7));
     }
-    laser_notifier_.registerCallback(boost::bind(&LegDetector::laserCallback, this, _1));
-    laser_notifier_.setTolerance(ros::Duration(0.01));
-
-    dynamic_reconfigure::Server<leg_detector::LegDetectorConfig>::CallbackType f;
-    f = boost::bind(&LegDetector::configure, this, _1, _2);
-    server_.setCallback(f);
+    laser_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>("scan", 10, std::bind(&LegDetector::laserCallback, this, std::placeholders::_1));
+    // laser_notifier_.registerCallback(
+    //     std::bind(&LegDetector::laserCallback, this, std::placeholders::_1));
+    // laser_notifier_.setTolerance(rclcpp::Duration(0, 1e7));
 
     feature_id_ = 0;
   }
@@ -324,59 +430,61 @@ public:
   {
   }
 
-  void configure(leg_detector::LegDetectorConfig &config, uint32_t level)
-  {
-    connected_thresh_       = config.connection_threshold;
-    min_points_per_group    = config.min_points_per_group;
-    leg_reliability_limit_  = config.leg_reliability_limit;
-    publish_legs_           = config.publish_legs;
-    publish_people_         = config.publish_people;
-    publish_leg_markers_    = config.publish_leg_markers;
-    publish_people_markers_ = config.publish_people_markers;
+  // void configure(leg_detector::LegDetectorConfig &config, uint32_t level)
+  // {
+  //   connected_thresh_       = config.connection_threshold;
+  //   min_points_per_group    = config.min_points_per_group;
+  //   leg_reliability_limit_  = config.leg_reliability_limit;
+  //   publish_legs_           = config.publish_legs;
+  //   publish_people_         = config.publish_people;
+  //   publish_leg_markers_    = config.publish_leg_markers;
+  //   publish_people_markers_ = config.publish_people_markers;
 
-    no_observation_timeout_s = config.no_observation_timeout;
-    max_second_leg_age_s     = config.max_second_leg_age;
-    max_track_jump_m         = config.max_track_jump;
-    max_meas_jump_m          = config.max_meas_jump;
-    leg_pair_separation_m    = config.leg_pair_separation;
-    if (std::string(fixed_frame).compare(config.fixed_frame) != 0)
-    {
-      fixed_frame              = config.fixed_frame.c_str();
-      laser_notifier_.setTargetFrame(fixed_frame);
-      people_notifier_.setTargetFrame(fixed_frame);
-    }
+  //   no_observation_timeout_s = config.no_observation_timeout;
+  //   max_second_leg_age_s     = config.max_second_leg_age;
+  //   max_track_jump_m         = config.max_track_jump;
+  //   max_meas_jump_m          = config.max_meas_jump;
+  //   leg_pair_separation_m    = config.leg_pair_separation;
+  //   if (std::string(fixed_frame).compare(config.fixed_frame) != 0)
+  //   {
+  //     fixed_frame              = config.fixed_frame.c_str();
+  //     laser_notifier_.setTargetFrame(fixed_frame);
+  //     people_notifier_.setTargetFrame(fixed_frame);
+  //   }
 
-    kal_p                    = config.kalman_p;
-    kal_q                    = config.kalman_q;
-    kal_r                    = config.kalman_r;
-    use_filter               = config.kalman_on == 1;
-  }
+  //   kal_p                    = config.kalman_p;
+  //   kal_q                    = config.kalman_q;
+  //   kal_r                    = config.kalman_r;
+  //   use_filter               = config.kalman_on == 1;
+  // }
 
   double distance(std::list<SavedFeature*>::iterator it1,  std::list<SavedFeature*>::iterator it2)
   {
-    tf::Stamped<tf::Point> one = (*it1)->position_, two = (*it2)->position_;
-    double dx = one[0] - two[0], dy = one[1] - two[1], dz = one[2] - two[2];
+    geometry_msgs::msg::PointStamped one = (*it1)->position_, two = (*it2)->position_;
+    double dx = one.point.x - two.point.x, dy = one.point.y - two.point.y, dz = one.point.z - two.point.z;
     return sqrt(dx * dx + dy * dy + dz * dz);
   }
 
   // Find the tracker that is closest to this person message
   // If a tracker was already assigned to a person,
   // keep this assignment when the distance between them is not too large.
-  void peopleCallback(const people_msgs::PositionMeasurement::ConstPtr& people_meas)
+  void peopleCallback(const people_msgs::msg::PositionMeasurement::SharedPtr people_meas)
   {
     // If there are no legs, return.
     if (saved_features_.empty())
       return;
 
-    tf::Point pt;
-    pointMsgToTF(people_meas->pos, pt);
-    tf::Stamped<tf::Point> person_loc(pt, people_meas->header.stamp, people_meas->header.frame_id);
-    person_loc[2] = 0.0;  // Ignore the height of the person measurement.
+    geometry_msgs::msg::PointStamped person_loc;
+    person_loc.point = people_meas->pos;
+    person_loc.point.z = 0.0;  // Ignore the height of the person measurement.
+    person_loc.header = people_meas->header;
 
     // Holder for all transformed pts.
-    tf::Stamped<tf::Point> dest_loc(pt, people_meas->header.stamp, people_meas->header.frame_id);
+    geometry_msgs::msg::PointStamped dest_loc;
+    dest_loc.header = people_meas->header;
+    dest_loc.point = people_meas->pos;
 
-    boost::mutex::scoped_lock lock(saved_mutex_);
+    std::scoped_lock lock(saved_mutex_);
 
     std::list<SavedFeature*>::iterator closest = saved_features_.end();
     std::list<SavedFeature*>::iterator closest1 = saved_features_.end();
@@ -402,15 +510,18 @@ public:
     {
       try
       {
-        tfl_.transformPoint((*it1)->id_, people_meas->header.stamp,
-                            person_loc, fixed_frame, dest_loc);
-        // ROS_INFO("Succesful leg transformation at spot 7");
+        std::chrono::nanoseconds time(rclcpp::Time(people_meas->header.stamp).nanoseconds());
+        tf_buffer_.transform(person_loc, dest_loc, (*it1)->id_,
+                                            tf2::TimePoint(time), fixed_frame);
+        // tfl_.transformPoint((*it1)->id_, people_meas->header.stamp,
+        //                     person_loc, fixed_frame, dest_loc);
+        RCLCPP_INFO(this->get_logger(), "Succesful leg transformation at spot 7");
       }
       catch (...)
       {
-        ROS_WARN("TF exception spot 7.");
+        RCLCPP_WARN(this->get_logger(), "TF exception spot 7.");
       }
-      (*it1)->dist_to_person_ = dest_loc.length();
+      (*it1)->dist_to_person_ = std::hypot(dest_loc.point.x, dest_loc.point.y);
     }
 
     // Try to find one or two trackers with the same label and within the max distance of the person.
@@ -472,13 +583,14 @@ public:
         // Get the distance between the two legs
         try
         {
-          tfl_.transformPoint((*it1)->id_, (*it2)->position_.stamp_, (*it2)->position_, fixed_frame, dest_loc);
+          tf_buffer_.transform((*it1)->position_, dest_loc,fixed_frame);
+          // tfl_.transformPoint((*it1)->id_, (*it2)->position_.stamp_, (*it2)->position_, fixed_frame, dest_loc);
         }
         catch (...)
         {
-          ROS_WARN("TF exception getting distance between legs.");
+          RCLCPP_WARN(this->get_logger(), "TF exception getting distance between legs.");
         }
-        dist_between_legs = dest_loc.length();
+        dist_between_legs = std::hypot(dest_loc.point.x, dest_loc.point.y);
 
         // If this is the closest dist (and within range), and the legs are close together and unlabeled, mark it.
         if (dist_between_legs < leg_pair_separation_m)
@@ -537,15 +649,13 @@ public:
           continue;
 
         // Get the distance between the two legs
-        try
-        {
-          tfl_.transformPoint((*it1)->id_, (*it2)->position_.stamp_, (*it2)->position_, fixed_frame, dest_loc);
+        try {
+          std::chrono::nanoseconds time(rclcpp::Time(people_meas->header.stamp).nanoseconds());
+          tf_buffer_.transform((*it2)->position_,dest_loc, (*it1)->id_, tf2::TimePoint(time), fixed_frame);
+        } catch (...) {
+          RCLCPP_WARN(this->get_logger(), "TF exception getting distance between legs in spot 2.");
         }
-        catch (...)
-        {
-          ROS_WARN("TF exception getting distance between legs in spot 2.");
-        }
-        dist_between_legs = dest_loc.length();
+        dist_between_legs = std::hypot(dest_loc.point.x, dest_loc.point.y);
 
         // Ensure that this pair of legs is the closest pair to the tracker,
         // and that the distance between the legs isn't too large.
@@ -686,7 +796,7 @@ public:
     }
   }
 
-  void laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
+  void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr scan)
   {
     laser_processor::ScanProcessor processor(*scan, mask_);
 
@@ -696,7 +806,7 @@ public:
     cv::Mat tmp_mat = cv::Mat(1, feat_count_, CV_32FC1);
 
     // if no measurement matches to a tracker in the last <no_observation_timeout>  seconds: erase tracker
-    ros::Time purge = scan->header.stamp + ros::Duration().fromSec(-no_observation_timeout_s);
+    rclcpp::Time purge = scan->header.stamp + rclcpp::Duration::from_seconds(-no_observation_timeout_s);
     std::list<SavedFeature*>::iterator sf_iter = saved_features_.begin();
     while (sf_iter != saved_features_.end())
     {
@@ -739,14 +849,16 @@ public:
                           static_cast<float>(forest->predict(tmp_mat, cv::noArray(), cv::ml::RTrees::PREDICT_SUM)) /
                           static_cast<float>(forest->getRoots().size());
 
-      tf::Stamped<tf::Point> loc((*i)->center(), scan->header.stamp, scan->header.frame_id);
-      try
-      {
-        tfl_.transformPoint(fixed_frame, loc, loc);
-      }
-      catch (...)
-      {
-        ROS_WARN("TF exception spot 3.");
+      geometry_msgs::msg::PointStamped loc;
+      loc.header = scan->header;
+      loc.point.x = (*i)->center()[0];
+      loc.point.y = (*i)->center()[1];
+      loc.point.z = (*i)->center()[2];
+      try {
+        loc.header.stamp = rclcpp::Time();
+        tf_buffer_.transform(loc, loc, fixed_frame);
+      } catch (...) {
+        RCLCPP_WARN(this->get_logger(), "TF exception spot 3.");
       }
 
       std::list<SavedFeature*>::iterator closest = propagated.end();
@@ -757,7 +869,9 @@ public:
            pf_iter++)
       {
         // find the closest distance between candidate and trackers
-        float dist = loc.distance((*pf_iter)->position_);
+        float dist = std::hypot(loc.point.x - (*pf_iter)->position_.point.x,
+                                loc.point.y - (*pf_iter)->position_.point.y);
+        // float dist = loc.distance((*pf_iter)->position_);
         if (dist < closest_dist)
         {
           closest = pf_iter;
@@ -768,7 +882,7 @@ public:
       if (closest == propagated.end())
       {
         std::list<SavedFeature*>::iterator new_saved =
-          saved_features_.insert(saved_features_.end(), new SavedFeature(loc, tfl_));
+          saved_features_.insert(saved_features_.end(), new SavedFeature(loc, tf_buffer_));
       }
       // Add the candidate, the tracker and the distance to a match list
       else
@@ -788,14 +902,22 @@ public:
         if (matched_iter->closest_ == *pf_iter)
         {
           // Transform candidate to fixed frame
-          tf::Stamped<tf::Point> loc(matched_iter->candidate_->center(), scan->header.stamp, scan->header.frame_id);
+          geometry_msgs::msg::PointStamped loc;
+          loc.header = scan->header;
+          loc.point.x = matched_iter->candidate_->center()[0];
+          loc.point.y = matched_iter->candidate_->center()[1];
+          loc.point.z = matched_iter->candidate_->center()[2];
+          // (matched_iter->candidate_->center(), scan->header.stamp, scan->header.frame_id);
           try
           {
-            tfl_.transformPoint(fixed_frame, loc, loc);
+            loc.header.stamp = rclcpp::Time();
+            tf_buffer_.transform(loc, loc, fixed_frame);
+            // tfl_.transformPoint(fixed_frame, loc, loc);
           }
           catch (...)
           {
-            ROS_WARN("TF exception spot 4.");
+            RCLCPP_WARN(this->get_logger(), "TF exception spot 4.");
+            // ROS_WARN("TF exception spot 4.");
           }
 
           // Update the tracker with the candidate location
@@ -818,14 +940,22 @@ public:
       // try to assign the candidate to another tracker
       if (!found)
       {
-        tf::Stamped<tf::Point> loc(matched_iter->candidate_->center(), scan->header.stamp, scan->header.frame_id);
+        geometry_msgs::msg::PointStamped loc;
+        loc.header = scan->header;
+        loc.point.x = matched_iter->candidate_->center()[0];
+        loc.point.y = matched_iter->candidate_->center()[1];
+        loc.point.z = matched_iter->candidate_->center()[2];
+        // (matched_iter->candidate_->center(), scan->header.stamp, scan->header.frame_id);
         try
         {
-          tfl_.transformPoint(fixed_frame, loc, loc);
+          loc.header.stamp = rclcpp::Time();
+          tf_buffer_.transform(loc, loc, fixed_frame);
+          // tfl_.transformPoint(fixed_frame, loc, loc);
         }
         catch (...)
         {
-          ROS_WARN("TF exception spot 5.");
+          RCLCPP_WARN(this->get_logger(), "TF exception spot 5.");
+          // ROS_WARN("TF exception spot 5.");
         }
 
         std::list<SavedFeature*>::iterator closest = propagated.end();
@@ -835,7 +965,9 @@ public:
              remain_iter != propagated.end();
              remain_iter++)
         {
-          float dist = loc.distance((*remain_iter)->position_);
+          float dist = std::hypot(loc.point.x - (*remain_iter)->position_.point.x,
+                                  loc.point.y - (*remain_iter)->position_.point.y);
+          // float dist = loc.distance((*remain_iter)->position_);
           if (dist < closest_dist)
           {
             closest = remain_iter;
@@ -847,7 +979,7 @@ public:
         // so create a new tracker for this candidate
         if (closest == propagated.end())
           std::list<SavedFeature*>::iterator new_saved =
-            saved_features_.insert(saved_features_.end(), new SavedFeature(loc, tfl_));
+            saved_features_.insert(saved_features_.end(), new SavedFeature(loc, tf_buffer_));
         else
           matches.insert(MatchedFeature(matched_iter->candidate_, *closest, closest_dist, matched_iter->probability_));
         matches.erase(matched_iter);
@@ -859,8 +991,9 @@ public:
 
     // Publish Data!
     int i = 0;
-    std::vector<people_msgs::PositionMeasurement> people;
-    std::vector<people_msgs::PositionMeasurement> legs;
+    std::vector<people_msgs::msg::PositionMeasurement> people;
+    std::vector<people_msgs::msg::PositionMeasurement> legs;
+    std::vector<visualization_msgs::msg::Marker> markers;
 
     for (std::list<SavedFeature*>::iterator sf_iter = saved_features_.begin();
          sf_iter != saved_features_.end();
@@ -872,14 +1005,12 @@ public:
       if ((*sf_iter)->getReliability() > leg_reliability_limit_
           && publish_legs_)
       {
-        people_msgs::PositionMeasurement pos;
+        people_msgs::msg::PositionMeasurement pos;
         pos.header.stamp = scan->header.stamp;
         pos.header.frame_id = fixed_frame;
         pos.name = "leg_detector";
         pos.object_id = (*sf_iter)->id_;
-        pos.pos.x = (*sf_iter)->position_[0];
-        pos.pos.y = (*sf_iter)->position_[1];
-        pos.pos.z = (*sf_iter)->position_[2];
+        pos.pos = (*sf_iter)->position_.point;
         pos.reliability = reliability;
         pos.covariance[0] = pow(0.3 / reliability, 2.0);
         pos.covariance[1] = 0.0;
@@ -896,21 +1027,19 @@ public:
 
       if (publish_leg_markers_)
       {
-        visualization_msgs::Marker m;
+        visualization_msgs::msg::Marker m;
         m.header.stamp = (*sf_iter)->time_;
         m.header.frame_id = fixed_frame;
         m.ns = "LEGS";
         m.id = i;
         m.type = m.SPHERE;
-        m.pose.position.x = (*sf_iter)->position_[0];
-        m.pose.position.y = (*sf_iter)->position_[1];
-        m.pose.position.z = (*sf_iter)->position_[2];
+        m.pose.position = (*sf_iter)->position_.point;
 
         m.scale.x = .1;
         m.scale.y = .1;
         m.scale.z = .1;
         m.color.a = 1;
-        m.lifetime = ros::Duration(0.5);
+        m.lifetime = rclcpp::Duration::from_seconds(0.5);
         if ((*sf_iter)->object_id != "")
         {
           m.color.r = 1;
@@ -920,7 +1049,7 @@ public:
           m.color.b = (*sf_iter)->getReliability();
         }
 
-        markers_pub_.publish(m);
+        markers.push_back(m);
       }
 
       if (publish_people_ || publish_people_markers_)
@@ -928,14 +1057,14 @@ public:
         SavedFeature* other = (*sf_iter)->other;
         if (other != NULL && other < (*sf_iter))
         {
-          double dx = ((*sf_iter)->position_[0] + other->position_[0]) / 2,
-                 dy = ((*sf_iter)->position_[1] + other->position_[1]) / 2,
-                 dz = ((*sf_iter)->position_[2] + other->position_[2]) / 2;
+          double dx = ((*sf_iter)->position_.point.x + other->position_.point.x) / 2,
+                 dy = ((*sf_iter)->position_.point.y + other->position_.point.y) / 2,
+                 dz = ((*sf_iter)->position_.point.z + other->position_.point.z) / 2;
 
           if (publish_people_)
           {
             reliability = reliability * other->reliability;
-            people_msgs::PositionMeasurement pos;
+            people_msgs::msg::PositionMeasurement pos;
             pos.header.stamp = (*sf_iter)->time_;
             pos.header.frame_id = fixed_frame;
             pos.name = (*sf_iter)->object_id;;
@@ -961,7 +1090,7 @@ public:
 
           if (publish_people_markers_)
           {
-            visualization_msgs::Marker m;
+            visualization_msgs::msg::Marker m;
             m.header.stamp = (*sf_iter)->time_;
             m.header.frame_id = fixed_frame;
             m.ns = "PEOPLE";
@@ -975,37 +1104,42 @@ public:
             m.scale.z = .2;
             m.color.a = 1;
             m.color.g = 1;
-            m.lifetime = ros::Duration(0.5);
+            m.lifetime = rclcpp::Duration::from_seconds(0.5);
 
-            markers_pub_.publish(m);
+            markers.push_back(m);
           }
         }
       }
     }
 
-    people_msgs::PositionMeasurementArray array;
-    array.header.stamp = ros::Time::now();
+    people_msgs::msg::PositionMeasurementArray array;
+    array.header.stamp = this->get_clock()->now();
     if (publish_legs_)
     {
       array.people = legs;
-      leg_measurements_pub_.publish(array);
+      leg_measurements_pub_->publish(array);
     }
     if (publish_people_)
     {
       array.people = people;
-      people_measurements_pub_.publish(array);
+      people_measurements_pub_->publish(array);
+    }
+    if (publish_leg_markers_ || publish_people_markers_)
+    {
+      visualization_msgs::msg::MarkerArray msg;
+      msg.markers = markers;
+      markers_pub_->publish(msg);
     }
   }
 };
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "leg_detector");
-  g_argc = argc;
-  g_argv = argv;
-  ros::NodeHandle nh;
-  LegDetector ld(nh);
-  ros::spin();
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<LegDetector>(argc, argv);
+
+  rclcpp::spin(node);
+  rclcpp::shutdown();
 
   return 0;
 }

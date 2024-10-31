@@ -38,21 +38,21 @@
 #define PEOPLE_TRACKING_FILTER_UNIFORM_VECTOR_H
 
 #include <bfl/pdf/pdf.h>
-#include <tf/tf.h>
+#include <tf2/LinearMath/Vector3.h>
 #include <vector>
 
 namespace BFL
 {
 /// Class representing uniform vector
-class UniformVector: public Pdf<tf::Vector3>
+class UniformVector: public Pdf<tf2::Vector3>
 {
 private:
-  tf::Vector3 mu_, size_;
+  tf2::Vector3 mu_, size_;
   double probability_;
 
 public:
   /// Constructor
-  UniformVector(const tf::Vector3& mu, const tf::Vector3& size);
+  UniformVector(const tf2::Vector3& mu, const tf2::Vector3& size);
 
   /// Destructor
   virtual ~UniformVector();
@@ -64,12 +64,12 @@ public:
   virtual UniformVector* Clone() const;
 
   // Redefinition of pure virtuals
-  virtual Probability ProbabilityGet(const tf::Vector3& input) const;
-  bool SampleFrom(vector<Sample<tf::Vector3> >& list_samples, const int num_samples, int method = DEFAULT,
+  virtual Probability ProbabilityGet(const tf2::Vector3& input) const;
+  bool SampleFrom(vector<Sample<tf2::Vector3> >& list_samples, const int num_samples, int method = 0,
                   void * args = NULL) const;
-  virtual bool SampleFrom(Sample<tf::Vector3>& one_sample, int method = DEFAULT, void * args = NULL) const;
+  virtual bool SampleFrom(Sample<tf2::Vector3>& one_sample, int method = 0, void * args = NULL) const;
 
-  virtual tf::Vector3 ExpectedValueGet() const;
+  virtual tf2::Vector3 ExpectedValueGet() const;
   virtual MatrixWrapper::SymmetricMatrix CovarianceGet() const;
 };
 }  // namespace BFL

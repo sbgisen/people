@@ -35,11 +35,12 @@
 #ifndef LEG_DETECTOR_LASER_PROCESSOR_H
 #define LEG_DETECTOR_LASER_PROCESSOR_H
 
+#include <tf2/LinearMath/Vector3.h>
 #include <unistd.h>
 #include <math.h>
-#include <sensor_msgs/LaserScan.h>
-#include <sensor_msgs/PointCloud.h>
-#include <geometry_msgs/Point.h>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <sensor_msgs/msg/point_cloud.hpp>
+#include <geometry_msgs/msg/point.hpp>
 
 #include <list>
 #include <set>
@@ -47,8 +48,6 @@
 #include <map>
 #include <utility>
 #include <algorithm>
-
-#include <tf/transform_datatypes.h>
 
 namespace laser_processor
 {
@@ -62,7 +61,7 @@ public:
   float x;
   float y;
 
-  static Sample* Extract(int ind, const sensor_msgs::LaserScan& scan);
+  static Sample* Extract(int ind, const sensor_msgs::msg::LaserScan& scan);
 
 private:
   Sample() {}
@@ -73,7 +72,7 @@ struct CompareSample
 {
   CompareSample() {}
 
-  inline bool operator()(const Sample* a, const Sample* b)
+  inline bool operator()(const Sample* a, const Sample* b) const
   {
     return (a->index <  b->index);
   }
@@ -93,9 +92,9 @@ public:
 
   void clear();
 
-  void appendToCloud(sensor_msgs::PointCloud& cloud, int r = 0, int g = 0, int b = 0);
+  void appendToCloud(sensor_msgs::msg::PointCloud& cloud, int r = 0, int g = 0, int b = 0);
 
-  tf::Point center();
+  tf2::Vector3 center();
 };
 
 //! A mask for filtering out Samples based on range
@@ -117,7 +116,7 @@ public:
     filled = false;
   }
 
-  void addScan(sensor_msgs::LaserScan& scan);
+  void addScan(sensor_msgs::msg::LaserScan& scan);
 
   bool hasSample(Sample* s, float thresh);
 };
@@ -127,7 +126,7 @@ public:
 class ScanProcessor
 {
   std::list<SampleSet*> clusters_;
-  sensor_msgs::LaserScan scan_;
+  sensor_msgs::msg::LaserScan scan_;
 
 public:
   std::list<SampleSet*>& getClusters()
@@ -135,7 +134,7 @@ public:
     return clusters_;
   }
 
-  ScanProcessor(const sensor_msgs::LaserScan& scan, ScanMask& mask_, float mask_threshold = 0.03);
+  ScanProcessor(const sensor_msgs::msg::LaserScan& scan, ScanMask& mask_, float mask_threshold = 0.03);
 
   ~ScanProcessor();
 

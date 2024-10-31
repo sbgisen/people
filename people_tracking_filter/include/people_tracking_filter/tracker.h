@@ -38,7 +38,7 @@
 #define PEOPLE_TRACKING_FILTER_TRACKER_H
 
 #include <people_tracking_filter/state_pos_vel.h>
-#include <people_msgs/PositionMeasurement.h>
+#include <people_msgs/msg/position_measurement.hpp>
 #include <bfl/wrappers/matrix/matrix_wrapper.h>
 #include <string>
 
@@ -78,12 +78,12 @@ public:
 
   /// update tracker
   virtual bool updatePrediction(const double time) = 0;
-  virtual bool updateCorrection(const tf::Vector3& meas,
+  virtual bool updateCorrection(const tf2::Vector3& meas,
                                 const MatrixWrapper::SymmetricMatrix& cov) = 0;
 
   /// get filter posterior
   virtual void getEstimate(BFL::StatePosVel& est) const = 0;
-  virtual void getEstimate(people_msgs::PositionMeasurement& est) const = 0;
+  virtual void getEstimate(people_msgs::msg::PositionMeasurement& est) const = 0;
 
 private:
   std::string name_;

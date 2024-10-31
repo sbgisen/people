@@ -39,8 +39,8 @@
 
 #include <bfl/pdf/mcpdf.h>
 #include <people_tracking_filter/state_pos_vel.h>
-#include <tf/tf.h>
-#include <sensor_msgs/PointCloud.h>
+#include <sensor_msgs/msg/point_cloud.hpp>
+#include <tf2/LinearMath/Vector3.h>
 
 namespace BFL
 {
@@ -55,13 +55,14 @@ public:
   virtual ~MCPdfPosVel();
 
   /// Get evenly distributed particle cloud
-  void getParticleCloud(const tf::Vector3& step, double threshold, sensor_msgs::PointCloud& cloud) const;
+  void getParticleCloud(
+    const tf2::Vector3 & step, double threshold, sensor_msgs::msg::PointCloud & cloud) const;
 
   /// Get pos histogram from certain area
-  MatrixWrapper::Matrix getHistogramPos(const tf::Vector3& min, const tf::Vector3& max, const tf::Vector3& step) const;
+  MatrixWrapper::Matrix getHistogramPos(const tf2::Vector3& min, const tf2::Vector3& max, const tf2::Vector3& step) const;
 
   /// Get vel histogram from certain area
-  MatrixWrapper::Matrix getHistogramVel(const tf::Vector3& min, const tf::Vector3& max, const tf::Vector3& step) const;
+  MatrixWrapper::Matrix getHistogramVel(const tf2::Vector3& min, const tf2::Vector3& max, const tf2::Vector3& step) const;
 
   virtual StatePosVel ExpectedValueGet() const;
   virtual WeightedSample<StatePosVel> SampleGet(unsigned int particle) const;
@@ -69,7 +70,7 @@ public:
 
 private:
   /// Get histogram from certain area
-  MatrixWrapper::Matrix getHistogram(const tf::Vector3& min, const tf::Vector3& max, const tf::Vector3& step,
+  MatrixWrapper::Matrix getHistogram(const tf2::Vector3& min, const tf2::Vector3& max, const tf2::Vector3& step,
                                      bool pos_hist) const;
 };
 }  // end namespace BFL

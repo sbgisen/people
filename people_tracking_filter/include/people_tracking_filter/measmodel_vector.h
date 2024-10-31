@@ -38,7 +38,7 @@
 #ifndef PEOPLE_TRACKING_FILTER_MEASMODEL_VECTOR_H
 #define PEOPLE_TRACKING_FILTER_MEASMODEL_VECTOR_H
 
-#include <tf/tf.h>
+#include <tf2/LinearMath/Vector3.h>
 #include <people_tracking_filter/gaussian_vector.h>
 #include <bfl/model/measurementmodel.h>
 #include <bfl/pdf/conditionalpdf.h>
@@ -48,11 +48,11 @@
 namespace BFL
 {
 class MeasPdfVector
-  : public BFL::ConditionalPdf<tf::Vector3, tf::Vector3>
+  : public BFL::ConditionalPdf<tf2::Vector3, tf2::Vector3>
 {
 public:
   /// Constructor
-  explicit MeasPdfVector(const tf::Vector3& sigma);
+  explicit MeasPdfVector(const tf2::Vector3& sigma);
 
   /// Destructor
   virtual ~MeasPdfVector();
@@ -61,9 +61,9 @@ public:
   void CovarianceSet(const  MatrixWrapper::SymmetricMatrix& cov);
 
   // Redefining pure virtual methods
-  virtual BFL::Probability ProbabilityGet(const tf::Vector3& input) const;
-  virtual bool SampleFrom(BFL::Sample<tf::Vector3>& one_sample, int method, void *args) const;   // Not applicable
-  virtual tf::Vector3 ExpectedValueGet() const;  // Not applicable
+  virtual BFL::Probability ProbabilityGet(const tf2::Vector3& input) const;
+  virtual bool SampleFrom(BFL::Sample<tf2::Vector3>& one_sample, int method, void *args) const;   // Not applicable
+  virtual tf2::Vector3 ExpectedValueGet() const;  // Not applicable
   virtual MatrixWrapper::SymmetricMatrix  CovarianceGet() const;  // Not applicable
 
 private:
@@ -71,12 +71,12 @@ private:
 };  // class
 
 class MeasModelVector
-  : public BFL::MeasurementModel<tf::Vector3, tf::Vector3>
+  : public BFL::MeasurementModel<tf2::Vector3, tf2::Vector3>
 {
 public:
   /// constructor
-  explicit MeasModelVector(const tf::Vector3& sigma)
-    : BFL::MeasurementModel<tf::Vector3, tf::Vector3>(new MeasPdfVector(sigma))
+  explicit MeasModelVector(const tf2::Vector3& sigma)
+    : BFL::MeasurementModel<tf2::Vector3, tf2::Vector3>(new MeasPdfVector(sigma))
   {};
 
   /// destructor

@@ -38,7 +38,7 @@
 #include <people_tracking_filter/state_pos_vel.h>
 #include <assert.h>
 #include <vector>
-#include <std_msgs/Float64.h>
+#include <std_msgs/msg/float64.hpp>
 #include <people_tracking_filter/rgb.h>
 #include <algorithm>
 
@@ -47,44 +47,44 @@ namespace BFL
 static const unsigned int NUM_CONDARG   = 1;
 
 MCPdfVector::MCPdfVector(unsigned int num_samples)
-  : MCPdf<tf::Vector3> (num_samples, NUM_CONDARG)
+  : MCPdf<tf2::Vector3> (num_samples, NUM_CONDARG)
 {}
 
 MCPdfVector::~MCPdfVector() {}
 
-WeightedSample<tf::Vector3>
+WeightedSample<tf2::Vector3>
 MCPdfVector::SampleGet(unsigned int particle) const
 {
   assert(static_cast<int>(particle) >= 0 && particle < _listOfSamples.size());
   return _listOfSamples[particle];
 }
 
-tf::Vector3 MCPdfVector::ExpectedValueGet() const
+tf2::Vector3 MCPdfVector::ExpectedValueGet() const
 {
-  tf::Vector3 pos(0, 0, 0);
+  tf2::Vector3 pos(0, 0, 0);
   double current_weight;
-  std::vector<WeightedSample<tf::Vector3> >::const_iterator it_los;
+  std::vector<WeightedSample<tf2::Vector3> >::const_iterator it_los;
   for (it_los = _listOfSamples.begin() ; it_los != _listOfSamples.end() ; it_los++)
   {
     current_weight = it_los->WeightGet();
     pos += (it_los->ValueGet() * current_weight);
   }
 
-  return tf::Vector3(pos);
+  return tf2::Vector3(pos);
 }
 
 /// Get evenly distributed particle cloud
-void MCPdfVector::getParticleCloud(const tf::Vector3& step, double threshold, sensor_msgs::PointCloud& cloud) const
+void MCPdfVector::getParticleCloud(const tf2::Vector3& step, double threshold, sensor_msgs::msg::PointCloud& cloud) const
 {
   unsigned int num_samples = _listOfSamples.size();
   assert(num_samples > 0);
-  tf::Vector3 m = _listOfSamples[0].ValueGet();
-  tf::Vector3 M = _listOfSamples[0].ValueGet();
+  tf2::Vector3 m = _listOfSamples[0].ValueGet();
+  tf2::Vector3 M = _listOfSamples[0].ValueGet();
 
   // calculate min and max
   for (unsigned int s = 0; s < num_samples; s++)
   {
-    tf::Vector3 v = _listOfSamples[s].ValueGet();
+    tf2::Vector3 v = _listOfSamples[s].ValueGet();
     for (unsigned int i = 0; i < 3; i++)
     {
       if (v[i] < m[i]) m[i] = v[i];
@@ -103,9 +103,9 @@ void MCPdfVector::getParticleCloud(const tf::Vector3& step, double threshold, se
       if (hist(r, c) > threshold) total++;
   std::cout << "size total " << total << std::endl;
 
-  std::vector<geometry_msgs::Point32> points(total);
+  std::vector<geometry_msgs::msg::Point32> points(total);
   std::vector<float> weights(total);
-  sensor_msgs::ChannelFloat32 channel;
+  sensor_msgs::msg::ChannelFloat32 channel;
   for (unsigned int r = 1; r <= row; r++)
     for (unsigned int c = 1; c <= col; c++)
       if (hist(r, c) > threshold)
@@ -126,9 +126,9 @@ void MCPdfVector::getParticleCloud(const tf::Vector3& step, double threshold, se
 }
 
 /// Get histogram from pos
-MatrixWrapper::Matrix MCPdfVector::getHistogram(const tf::Vector3& m,
-                                                const tf::Vector3& M,
-                                                const tf::Vector3& step) const
+MatrixWrapper::Matrix MCPdfVector::getHistogram(const tf2::Vector3& m,
+                                                const tf2::Vector3& M,
+                                                const tf2::Vector3& step) const
 {
   unsigned int num_samples = _listOfSamples.size();
   unsigned int rows = round((M[0] - m[0]) / step[0]);
@@ -139,7 +139,7 @@ MatrixWrapper::Matrix MCPdfVector::getHistogram(const tf::Vector3& m,
   // calculate histogram
   for (unsigned int i = 0; i < num_samples; i++)
   {
-    tf::Vector3 rel(_listOfSamples[i].ValueGet() - m);
+    tf2::Vector3 rel(_listOfSamples[i].ValueGet() - m);
     unsigned int r = round(rel[0] / step[0]);
     unsigned int c = round(rel[1] / step[1]);
     if (r >= 1 && c >= 1 && r <= rows && c <= cols)
