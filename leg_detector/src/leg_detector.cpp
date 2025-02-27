@@ -1113,7 +1113,8 @@ public:
     }
 
     people_msgs::msg::PositionMeasurementArray array;
-    array.header.stamp = this->get_clock()->now();
+    array.header.frame_id = fixed_frame;
+    array.header.stamp = scan->header.stamp;
     if (publish_legs_)
     {
       array.people = legs;
